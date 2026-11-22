@@ -36,6 +36,8 @@
 ### 交付
 
 - 完成 README、AGENTS、ARCHITECTURE、DECISIONS、ROADMAP、COMPONENTS、CONVENTIONS、FRONTEND、API、DATA_DICT、CONFIGURATION、LOGGING 等文档定稿。
+- 固化公共组件统一设计约定（职责、依赖注入、配置、Context、生命周期、错误、并发、观测、测试和适配边界），不创建强制万能接口。
+- 明确 HTTP 输入解析、字段级校验和领域规则的职责分层；独立校验包是否成立留待 P1 基于真实 DTO 验证。
 - 建立 `cmd/`、`kernel/`、`infra/`、`apps/`、`webui/`、`sql/`、`docs/` 等目标目录。
 - 确认 easy 系列本地开发接入方式：子模块、workspace 或 replace 策略；固定版本来源和升级方法。
 - 核对 Go 最低版本和直接依赖准入清单。
@@ -50,6 +52,8 @@
 - 开发模式修改静态资源后刷新可见；生产构建资源完整内嵌。
 - 架构测试能识别反向依赖、底层库绕行和前端禁用模式。
 - 文档链接、计划配对和目标目录一致。
+- 公共组件的设计约定可用于评审现有和新增组件，且没有制造统一万能接口。
+- 请求解析、字段级校验与领域规则各有明确归属；422 字段错误契约与 API 文档一致。
 - easy 系列的未确认行为均被记录为验证项，而不是假设。
 
 ### 不做
@@ -68,6 +72,7 @@
 - 两阶段 `Declare` / `Register`；可选 Lifecycle Start/Stop；启动失败清理和逆序关闭。
 - infra 的 easyconf/easyserver/easyserver-log 适配；配置类型化注册、快照和受控 Watch。
 - Logger 门面、稳定业务错误、统一 HTTP 路由/响应/RequestID/Recover/AccessLog。
+- 请求结构解析与字段级校验的统一实现；字段错误按 422 契约返回，具体校验包以 P1 评估结论为准。
 - `/api/meta`、`/healthz`、`/readyz`。
 - 优雅停机和资源关闭顺序。
 
