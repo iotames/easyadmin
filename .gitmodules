@@ -1,0 +1,9 @@
+[submodule "lib/easyconf"]
+	path = lib/easyconf
+	url = https://github.com/iotames/easyconf.git
+[submodule "lib/easydb"]
+	path = lib/easydb
+	url = https://github.com/iotames/easydb.git
+[submodule "lib/easyserver"]
+	path = lib/easyserver
+	url = https://github.com/iotames/easyserver.git

@@ -1,0 +1,11 @@
+# 运行时生成：配置与数据由程序在工作目录生成，不入库
+.env
+default.env
+data/
+bin/
+*.log
+
+# 编辑器与系统
+.idea/
+.vscode/
+.DS_Store

@@ -1,0 +1,293 @@
+# 调度、凭据、服务器与数据源方案
+
+> 目标：把 emailplugin 的调度器、凭据加密、SSH 隧道和命名数据源吸收到 `infra`，同时保留 rocksys 的简单运维体验。
+
+## 1. 取舍
+
+### 1.1 调度器：以 emailplugin 为主
+
+emailplugin 的调度器比 rocksys 的“登记表 + 展示”更完整：
+
+- 结构化 `Plan`（按分钟间隔）；
+- `Def`/`Entry`/`Runner` 分离；
+- 到期扫描、漏跑补一次、上轮未结束跳过；
+- 任务提交到任务中心，不自己执行业务；
+- 重启后接管 pending 任务；
+- 调度名与任务 kind 同名，查询关系可逆。
+
+rocksys 只保留两点：登记表用于统一展示，配置键作为启停唯一真源。
+
+### 1.2 凭据与服务器：以 emailplugin 为主
+
+emailplugin 已经具备服务器记录、AES-256-GCM 加密、私钥/密码认证、`~/.ssh/config` 别名、SSH 隧道和连接测试。rocksys 的数据源主要停留在 dsn.json 层面，缺少凭据加密和隧道。
+
+结论：
+
+- `infra/credential` 提供纯能力：加密、SSH 测试、别名解析、隧道；
+- `apps/system/servers` 负责 `sys_server` 表、页面和权限；
+- `infra/db` 负责数据源连接，不直接依赖 `apps`；
+- 凭据密文与 DSN 密文都通过 `infra/credential` 加密。
+
+### 1.3 数据源：融合两者
+
+- Bootstrap 数据源：启动前就要用，放 `infra/conf`（`EASYADMIN_DB_DRIVER`、`EASYADMIN_DB_DSN`）。
+- 运行期数据源：初始化完成后放 `sys_datasource`，支持命名、只读/读写角色、SSH 隧道和脚本方言。
+- rocksys 的“激活数据源”保留为 `sys_datasource.active`，但不再用明文 dsn.json 作为主存储。
+
+## 2. infra 包边界
+
+```text
+infra/
+├── credential/        # 已迁移：AES-GCM、SSH 测试、ssh config、隧道
+├── conf/              # 已迁移：注册制配置、分组、热更
+├── db/                # 已迁移：连接、Schema、Diff、DataSourceManager
+├── scheduler/         # 待迁移：登记、扫描、派发任务
+├── tasks/             # 已迁移：任务中心、互斥规则
+├── logx/              # 待迁移：日志 reader/query 接口
+└── systeminfo/        # 待迁移：进程/CPU/内存采样
+```
+
+HTTP handler、页面、菜单、权限都放 `apps/system`，不进 `infra`。
+
+## 3. 调度器设计
+
+### 3.1 类型
+
+```go
+type Plan struct {
+    EveryMin int
+}
+
+type Def struct {
+    Name       string   // 小写字母+下划线；同时是 task kind
+    Title      string
+    EnabledKey string   // 配置键，启停唯一真源
+    PlanKey    string   // 计划来源配置键；空则用 Plan
+    Plan       Plan
+    Remark     string
+}
+
+type Entry struct {
+    Name, Title, ConfigKey, PlanKey, PlanDesc, Remark string
+    Plan          Plan
+    Enabled       bool
+    LastStatus    string
+    LastMessage   string
+    LastTaskID    string
+    LastRunAt     *time.Time
+    NextRunAt     *time.Time
+}
+
+type Runner func(ctx context.Context, progress tasks.SetProgressFn) error
+
+type ConfigLookup func(key string) (string, bool)
+
+type Store interface {
+    Sync(ctx context.Context, entries []Entry) error
+    List(ctx context.Context) ([]Entry, error)
+    MarkRunning(ctx context.Context, name, taskID string, at time.Time) error
+    MarkFinished(ctx context.Context, name, status, message string, at time.Time) error
+    AdoptPending(ctx context.Context) ([]Entry, error)
+}
+
+type Deps struct {
+    Store     Store
+    Tasks     *tasks.Center
+    Config    ConfigLookup
+    Location  *time.Location
+    Now       func() time.Time
+    ScanEvery func() time.Duration
+}
+```
+
+### 3.2 行为和约束
+
+- `Register(def, runner)`：名称唯一，`def.Name == runner.Kind`。
+- `Start(ctx)`：立即 `ScanOnce`，之后按 `ScanEvery`（默认 5s）扫描。
+- 到期判断：`NextRun` 严格晚于当前时刻；停机漏跑只补一次。
+- 上轮任务仍在运行：本轮记 `skipped`，不堆积。
+- `Submit` 到 `tasks.Center`，`CreatedBy = "scheduler:<调度名>"`，同源任务因此互斥。
+- 重启接管：读取 `sys_schedule.pending_task_id`，任务仍 running 则继续等待；已终态则收口。
+- 关闭：`Stop` 取消扫描并等待跟踪协程退出，不等待任务执行完毕（任务由任务中心收口或随进程退出）；不删除登记行。
+
+### 3.3 表结构
+
+```sql
+CREATE TABLE sys_schedule (
+    name            VARCHAR(64) PRIMARY KEY,
+    title           VARCHAR(128) NOT NULL,
+    config_key      VARCHAR(128) NOT NULL,
+    plan_key        VARCHAR(128) NOT NULL DEFAULT '',
+    plan_every_min  INTEGER NOT NULL,
+    remark          VARCHAR(500) NOT NULL DEFAULT '',
+    last_status     VARCHAR(16) NOT NULL DEFAULT '',
+    last_message    VARCHAR(255) NOT NULL DEFAULT '',
+    last_task_id    VARCHAR(64) NOT NULL DEFAULT '',
+    pending_task_id VARCHAR(64) NOT NULL DEFAULT '',
+    last_run_at     TIMESTAMP NULL,
+    next_run_at     TIMESTAMP NULL,
+    updated_at      TIMESTAMP NOT NULL
+);
+```
+
+任务明细不重复存表，统一查 `infra/tasks` 的任务记录；调度表只保留上一轮结果和 pending 指针。
+
+## 4. 凭据、服务器与数据源
+
+### 4.1 凭据
+
+`infra/credential` 已迁移：
+
+- `ParseKey/Encrypt/Decrypt/GenerateKey`：AES-256-GCM，密文带 `v1:` 版本前缀；
+- `Validate/Resolve`：服务器输入校验和连接参数解析；
+- `Test`：SSH 握手、认证、known_hosts 校验和错误分类；
+- `LookupAlias`：`~/.ssh/config` 别名解析；
+- `Tunnel`：经跳板机转发 TCP，数据库驱动直接使用 `DialContext`。
+
+配置键：`EASYADMIN_CREDENTIAL_KEY`，必须是 base64 的 32 字节。密钥不写日志、不返回前端；更换密钥必须提供迁移或重新录入流程。
+
+### 4.2 服务器表 `sys_server`
+
+```sql
+CREATE TABLE sys_server (
+    id              BIGINT PRIMARY KEY,
+    name            VARCHAR(64) NOT NULL UNIQUE,
+    connect_type    VARCHAR(16) NOT NULL, -- direct/config
+    host            VARCHAR(255) NOT NULL DEFAULT '',
+    port            INTEGER NOT NULL DEFAULT 22,
+    username        VARCHAR(64) NOT NULL DEFAULT '',
+    auth_type       VARCHAR(16) NOT NULL, -- key/password
+    key_path        VARCHAR(500) NOT NULL DEFAULT '',
+    password_enc    TEXT NOT NULL DEFAULT '',
+    config_alias    VARCHAR(64) NOT NULL DEFAULT '',
+    remark          VARCHAR(500) NOT NULL DEFAULT '',
+    last_test_at    TIMESTAMP NULL,
+    last_test_ok    BOOLEAN NOT NULL DEFAULT FALSE,
+    last_test_error VARCHAR(500) NOT NULL DEFAULT '',
+    created_at      TIMESTAMP NOT NULL,
+    updated_at      TIMESTAMP NOT NULL
+);
+```
+
+### 4.3 数据源表 `sys_datasource`
+
+```sql
+CREATE TABLE sys_datasource (
+    id          BIGINT PRIMARY KEY,
+    name        VARCHAR(64) NOT NULL UNIQUE,
+    driver      VARCHAR(32) NOT NULL,       -- sqlite/mysql/postgres
+    dialect     VARCHAR(32) NOT NULL,
+    role        VARCHAR(16) NOT NULL,       -- readwrite/readonly
+    dsn_enc     TEXT NOT NULL DEFAULT '',   -- 直连 DSN，加密存储
+    server_id   BIGINT NULL,                 -- 经 SSH 隧道时引用 sys_server
+    active      BOOLEAN NOT NULL DEFAULT FALSE,
+    remark      VARCHAR(500) NOT NULL DEFAULT '',
+    created_at  TIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP NOT NULL
+);
+```
+
+连接优先级：
+
+1. 直连 `dsn_enc`；
+2. `server_id` + 目标 host/port 走 SSH 隧道；
+3. 未配置则回退 bootstrap 数据源。
+
+### 4.4 与 rocksys 的差异
+
+| 能力 | rocksys | emailplugin | EasyAdmin 采用 |
+|---|---|---|---|
+| 数据源存储 | dsn.json | 数据库 + 加密字段 | 数据库为主，bootstrap 用配置 |
+| 凭据 | 无统一加密 | AES-GCM | 采用 emailplugin |
+| SSH 隧道 | 无 | 有 | 采用 emailplugin |
+| 只读角色 | 无 | 有 | 采用 emailplugin |
+| 激活数据源 | 有 | 按名称选择 | 保留 active 标记 |
+| SQL 脚本方言 | 有 | 有 | 采用 `infra/db` |
+| 页面/HTTP | adminapi | httpapi | 移到 `apps/system` |
+
+## 5. 其他待迁移项
+
+### 5.1 `infra/db/migrate`
+
+从 `rocksys/internal/adminapi/migrate.go` 抽核心：
+
+```go
+type Migrator struct {
+    Source, Target *db.DB
+}
+
+type Options struct {
+    Tables []string
+    Batch  int
+    Mode   string // replace/upsert
+}
+
+func (m *Migrator) SchemaDiff(ctx) ([]db.DiffItem, error)
+func (m *Migrator) ApplySchema(ctx, progress tasks.SetProgressFn) error
+func (m *Migrator) Run(ctx, opts Options, progress tasks.SetProgressFn) error
+```
+
+HTTP handler、数据源选择、任务提交留在 `apps/system`。
+
+### 5.2 `infra/db/size`
+
+从 `dbsize.go` 抽：
+
+- `TableStat`；
+- 按方言查询表清单/行数/数据与索引占用；
+- SQLite `dbstat` 懒计算 + 进程内 TTL 缓存；
+- 不包含 HTTP handler。
+
+### 5.3 `infra/logx`
+
+先定义接口，不搬 handler：
+
+```go
+type Reader interface {
+    Tail(ctx context.Context, limit int) ([]Line, error)
+    Query(ctx context.Context, q Query) ([]Line, int64, error)
+}
+```
+
+文件 reader、数据库 audit/task log reader 分别实现；HTTP 查询页放 `apps/system/logs`。
+
+### 5.4 `infra/systeminfo`
+
+从 `handlers_system.go` 抽纯采样：
+
+- 进程运行时长、Goroutines、进程内存；
+- Linux `/proc` CPU/内存采样；
+- 非 Linux 字段返回 null；
+- 不带 HTTP 和页面。
+
+### 5.5 `infra/storage`
+
+从 emailplugin 的 storage 抽：
+
+- `Driver` 接口；
+- 本地驱动；
+- 原子写入、鉴权下载所需的元数据接口；
+- qiniu 等厂商驱动放可选包，不进核心。
+
+## 6. 实施顺序
+
+1. `infra/credential`（已完成）。
+2. `infra/scheduler`：Plan/Def/Entry/Runner + Store 接口 + 内存 Store 测试；再接 `sys_schedule`。
+3. `apps/system/servers`：`sys_server` 表、CRUD、连接测试页面。
+4. `apps/system/datasources`：`sys_datasource` 表、连接测试、激活切换。
+5. `infra/db/migrate`。
+6. `infra/db/size`。
+7. `infra/logx`、`infra/systeminfo`、`infra/storage`。
+
+## 7. 验收
+
+- 调度：注册、到期触发、漏跑补一次、上轮未结束 skipped、重启接管、取消。
+- 凭据：加密往返、错误密钥、SSH 密码/私钥、known_hosts、别名解析。
+- 数据源：直连、只读拒绝写、SSH 隧道、激活切换、DSN 密文不回显。
+- Schema：三方言解析、Diff 分级、幂等建表。
+- 迁移：表级进度、取消、目标库结构对齐。
+
+```bash
+go test ./infra/...
+go vet ./infra/...
+```
