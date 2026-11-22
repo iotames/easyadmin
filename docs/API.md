@@ -92,7 +92,40 @@
 }
 ```
 
-### 3.3 分页
+
+`error.details` 是可选的结构化扩展对象；没有额外信息时返回空对象 `{}`。字段校验错误的结构由下节统一定义，不得由各模块自行设计。
+
+### 3.3 字段校验失败（HTTP 422）
+
+字段校验失败使用稳定错误码 `COMMON_VALIDATION_FAILED`。当错误能够定位到请求字段时，必须在 `error.details.fields` 中返回字段错误：
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "COMMON_VALIDATION_FAILED",
+    "message": "请求字段校验失败",
+    "details": {
+      "fields": {
+        "username": ["用户名不能为空"],
+        "profile.email": ["邮箱格式不正确"],
+        "items[0].name": ["名称长度不能超过 64 个字符"]
+      }
+    }
+  },
+  "meta": { "request_id": "req_01J..." }
+}
+```
+
+契约规则：
+
+- `fields` 是对象，键为稳定字段路径，值为**非空字符串数组**；即使某字段只有一条错误，也必须使用数组，以支持同一字段返回多条错误。
+- 字段路径使用 API 对外字段名（JSON 使用的 `snake_case` 名称），不得使用 Go 结构体字段名、数据库列名或界面标签。
+- 顶层字段直接使用字段名，例如 `username`；嵌套对象使用点号，例如 `profile.email`；数组元素使用从 0 开始的下标，例如 `items[0].name`。Query 参数使用其公开参数名。
+- 每条消息必须面向用户、可安全展示。不得在 `fields` 或其他 `details` 中回显密码、令牌、未经处理的用户输入、SQL、堆栈或内部 Cause。
+- 只有能够定位到请求字段的错误才放入 `fields`；非字段级错误不应伪造字段路径，前端应展示顶层 `error.message`。
+
+### 3.4 分页
 
 ```json
 {
@@ -117,7 +150,7 @@
 | `sort` | query | 排序字段，必须在资源白名单内 |
 | `order` | query | `asc` / `desc`，默认 `desc` |
 
-未知字段、非法排序字段返回 400；字段校验失败返回 422。
+未知字段、非法排序字段、JSON 格式错误和参数类型转换失败返回 400；请求成功绑定后，字段或跨字段输入约束不满足返回 422；因已存在数据或资源当前状态产生的冲突返回 409。
 
 ## 5. 元信息
 
@@ -408,7 +441,8 @@
 | `SYSTEM_CONFIG_READONLY` | 400 | 配置项不可运行期修改 |
 | `SYSTEM_TASK_NOT_RETRYABLE` | 400 | 任务类型未注册重试 |
 | `SYSTEM_FILE_TOO_LARGE` | 400 | 上传超限 |
-| `COMMON_INVALID_ARGUMENT` | 400 | 参数错误 |
+| `COMMON_INVALID_ARGUMENT` | 400 | 参数格式、结构或类型错误 |
+| `COMMON_VALIDATION_FAILED` | 422 | 字段或跨字段输入校验失败 |
 | `COMMON_NOT_FOUND` | 404 | 资源不存在 |
 | `COMMON_INTERNAL` | 500 | 未预期错误 |
 | `COMMON_UNAVAILABLE` | 503 | 依赖不可用 |
