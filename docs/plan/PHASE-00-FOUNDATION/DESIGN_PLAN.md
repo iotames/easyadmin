@@ -47,7 +47,7 @@
 
 - 文档之间无死链和互相矛盾。
 - 公共组件准入与设计检查清单可以应用于现有 infra 和后续新增组件。
-- HTTP 解析、字段校验和领域规则边界清晰，且不与现有 400/422 错误契约冲突。
+- HTTP 输入解析、字段及跨字段输入校验、领域状态冲突和权限错误边界清晰；400/422/409/403 的状态码语义及 422 的 `error.details.fields` 结构与 `API.md`、`CONVENTIONS.md`、`AGENTS.md` 一致。
 - CLI 与代码生成继续按 `SCAFFOLD_AND_UPGRADE.md` 规划；P0 定规范，不提前实现生成器。
 - 干净环境可执行 go build、go test、go vet。
 - dev 模式可读磁盘资源，生产模式 embed 资源完整。
