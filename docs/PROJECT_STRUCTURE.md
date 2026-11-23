@@ -15,6 +15,7 @@ easyadmin/
 │   ├── conf/
 │   ├── logx/
 │   ├── db/
+│   ├── credential/                 # AES-GCM、SSH 测试/别名/隧道
 │   ├── httpapi/
 │   ├── apperror/
 │   ├── auth/
@@ -109,3 +110,15 @@ apps/system/users/
 ## 5. 公开 API 与私有实现
 
 业务项目可依赖的稳定包必须经过版本兼容策略管理。底层 easy 库类型原则上不向业务模块泄漏；`infra` 门面提供业务使用方需要的最小能力。具体包拆分由 P0/P1 以真实调用和测试为依据，不提前为每个函数创建包装层。
+
+## 3. 当前仓库事实（与目标树分开）
+
+当前已存在的主要基础设施源码：
+
+- `infra/conf/`
+- `infra/db/`（含 `datasource.go` 文件级数据源管理实现）
+- `infra/credential/`
+- `infra/tasks/`（当前为纯内存任务中心）
+- `infra/scheduler/`（当前有 Store 接口和 `MemoryStore`，数据库 Store 未实现）
+
+当前尚不存在的目标目录包括 `cmd/`、`kernel/`、`apps/`、`webui/`、`sql/`。目标树是规划，不得作为当前实现清单引用。

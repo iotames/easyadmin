@@ -75,6 +75,8 @@
 
 ## 3. 基础设施组件清单
 
+状态口径：本节表格描述目标公开职责；当前源码已存在不等于对应持久化、管理 API 或 WebUI 已交付。当前代码目录/文件以 `PROJECT_STRUCTURE.md` 的现状清单为准。
+
 ### 3.1 kernel
 
 | 项 | 职责 | 唯一入口 | 禁止 |
@@ -142,7 +144,18 @@
 | 登录限流 | 按来源限制失败次数 | `auth.LoginLimiter` | 无限制登录 |
 | 初始化 | 首次管理员创建 | `auth.Bootstrap` | 默认弱口令 |
 
-### 3.7 infra/tasks
+### 3.7 infra/credential
+
+| 项 | 职责 | 入口 | 禁止 |
+|---|---|---|---|
+| 凭据加解密 | AES-256-GCM 密文封装与解封装 | `credential.Encrypt/Decrypt` | 明文落库、日志或 API 回显 |
+| SSH 连接 | 认证参数校验、连接测试、known_hosts 校验 | `credential.Test` | 业务模块自行拼接 SSH 鉴权 |
+| SSH 配置 | `~/.ssh/config` 别名解析 | `credential.LookupAlias` | 未验证别名解析结果直接执行 |
+| 隧道 | TCP 端口转发 | `credential.Tunnel` | 让 infra 依赖 apps 页面/权限 |
+
+当前 `infra/credential` 已有源码实现；服务器记录、凭据仓储、页面和授权仍属于上层应用及后续阶段，不等于已交付。
+
+### 3.8 infra/tasks
 
 | 项 | 职责 | 入口 | 禁止 |
 |---|---|---|---|
@@ -151,18 +164,20 @@
 | 日志 | 任务日志追加 | `Run.Log` | 混入应用日志 |
 | 取消 | 上下文取消 | `Center.Cancel` | 无法取消的长任务 |
 | 重试 | 按 kind 注册重试逻辑 | `Center.Retry` | 通用盲目重试 |
-| 接管 | 重启后收口 | `Center.Takeover` | 遗留 running 不处理 |
+| 接管 | 目标能力：重启后恢复/收口 | 持久化仓储适配层（待建设） | 将当前内存态误称为已持久化 |
 
-### 3.8 infra/scheduler
+### 3.9 infra/scheduler
 
 | 项 | 职责 | 入口 | 禁止 |
 |---|---|---|---|
 | 登记 | 调度项与 runner 绑定 | `scheduler.Register` | 模块自建 ticker |
 | 触发 | 到期扫描、跳过记账 | `Scheduler.Start` | 堆积排队 |
+
+当前 `infra/scheduler` 已有 `Store` 接口与 `MemoryStore`；数据库 Store 尚未实现。
 | 配置 | 开关、周期热更 | 配置中心 | 硬编码周期 |
 | 执行 | 统一下发任务中心 | `tasks.Submit` | 调度器内直接跑长任务 |
 
-### 3.9 infra/storage
+### 3.10 infra/storage
 
 | 项 | 职责 | 入口 | 禁止 |
 |---|---|---|---|

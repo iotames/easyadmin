@@ -73,7 +73,7 @@ Watch 回调不得在底层配置锁持有期间执行；回调不可重入导�
 - 文件权限、原子替换或并发更新不满足要求；
 - 若后续启用 Runtime Settings，属于运行设置的数据存数据库，不塞进配置文件；v0.x 不提供该入口。
 
-管理 UI 修改配置必须返回 `applied`、`persisted`、`restart_required`、`source` 等明确状态。非阻断持久化失败可以返回成功加 warning，但必须如实说明重启后的行为。
+v0.x 管理 UI 只处理 Bootstrap Config。写入必须同时满足：注册项 `writable=true`、策略非 `immutable`、当前来源为应用明确管理且可原子写入的配置文件。环境变量/命令行/容器注入来源不得写 `.env` 冒充持久化。写入 API 必须返回 `applied`、`persisted`、`restart_required`、`source`；`restart` 项持久化成功不等于当前进程已应用。`infra/conf.Manager.Set` 当前仅代表内存快照设值，不构成持久化协议。
 
 ## 7. 敏感配置
 
@@ -81,7 +81,7 @@ Watch 回调不得在底层配置锁持有期间执行；回调不可重入导�
 
 ## 8. 管理 UI
 
-管理页面根据注册表生成分组、标题、类型、默认值、来源、热更和重启信息。只允许编辑 `runtime` 或显式 `writable` 且可持久化的字段。密钥输入不回填原文；更新需要版本号/乐观锁避免覆盖并发修改。
+管理页面根据注册表生成分组、标题、类型、默认值、来源、热更和重启信息。v0.x 不展示 Runtime Settings 编辑能力；只允许编辑来源可写、显式 `writable=true` 且持久化路径已验证的 Bootstrap Config。密钥输入不回填原文；更新需要版本号/乐观锁避免覆盖并发修改。
 
 ## 9. easyconf 核验清单
 

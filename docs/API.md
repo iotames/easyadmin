@@ -290,36 +290,44 @@
 
 ## 9. 配置中心
 
-权限：`system.config.read` / `system.config.write`
+权限：system.config.read / system.config.write
+
+v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Runtime Settings。GET 读取已注册启动配置的安全元数据；PUT 只允许显式声明可写、且当前来源具备受支持持久化路径的配置项。环境变量、命令行、容器注入和 immutable 配置不能通过写 .env 伪装成已持久化。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/system/config` | 分组列出配置项 |
-| PUT | `/api/system/config/{key}` | 修改单个可热更配置项 |
+| GET | /api/system/config | 分组列出已注册的 Bootstrap Config 元数据 |
+| PUT | /api/system/config/{key} | 修改显式允许写入、且持久化来源可控的单个启动配置项 |
 
 配置项对象：
 
-```json
+~~~json
 {
   "key": "APP_LISTEN_ADDR",
   "title": "HTTP 监听地址",
   "type": "string",
   "value": ":19527",
   "default": ":19527",
-  "usage": "管理界面与 API 共用端口",
-  "hot_reload": true,
+  "source": "file",
+  "hot_reload": "restart",
   "secret": false,
   "writable": true,
+  "persisted": true,
+  "restart_required": false,
   "group": "应用"
 }
-```
+~~~
+
+写入成功响应必须明确返回 applied、persisted、restart_required 和 source，不能仅以 HTTP 200 表示配置已生效。restart 项写入文件后只表示候选值已持久化，不表示当前进程监听地址已改变；必须设置 restart_required=true、applied=false。只有 hot 项且消费者更新成功时才可 applied=true。
 
 规则：
 
-- 密钥类 `value` 固定返回 `******`，不可写；
-- 非热更项 `writable=false`，前端展示为只读；
-- 写回 `.env` 失败时返回成功但带 `warning`，前端必须提示“本次生效、重启回落”；
-- 配置修改必须审计。
+- source 至少区分 default、file、environment、command_line；容器平台注入值按 environment 来源处理。
+- writable=true 仅适用于应用明确管理的可写配置文件来源，且必须采用原子写入和并发冲突保护；默认值快照 default.env 不得当作用户配置写回目标。
+- 当前值由环境变量或命令行提供时，.env 写回不会覆盖实际生效值；此类项必须拒绝写入并返回 SYSTEM_CONFIG_READONLY（409）。
+- 密钥类只返回 configured/masked 状态，不回显原文；密钥值默认不可读、不可写。
+- 仅内存 Manager.Set 不等于持久化。实现必须由配置适配层提供安全写入与来源核验；不能将 Set 成功描述为持久化成功。
+- 配置修改必须审计；持久化失败不得伪装成功。Runtime Settings、sys_setting 和数据库覆盖优先级不属于 v0.x。
 
 ## 10. 任务中心
 
@@ -438,7 +446,7 @@
 | `SYSTEM_USER_NOT_FOUND` | 404 | 用户不存在 |
 | `SYSTEM_USER_DUPLICATE` | 409 | 用户名已存在 |
 | `SYSTEM_ROLE_IN_USE` | 409 | 角色仍被用户引用 |
-| `SYSTEM_CONFIG_READONLY` | 409 | 配置项当前不可运行期修改 |
+| `SYSTEM_CONFIG_READONLY` | 409 | 配置项来源不可写、策略为 immutable 或不允许在线修改 |
 | `SYSTEM_TASK_NOT_RETRYABLE` | 409 | 任务当前状态或类型不支持重试 |
 | `SYSTEM_FILE_TOO_LARGE` | 413 | 上传内容超过大小限制 |
 | `COMMON_INVALID_ARGUMENT` | 400 | 参数格式、结构或类型错误 |
