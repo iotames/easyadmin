@@ -41,7 +41,7 @@ infra/
 ├── credential/        # 已迁移：AES-GCM、SSH 测试、ssh config、隧道
 ├── conf/              # 已迁移：注册制配置、分组、热更
 ├── db/                # 已迁移：连接、Schema、Diff、DataSourceManager
-├── scheduler/         # 待迁移：登记、扫描、派发任务
+├── scheduler/         # 已迁移核心 + Store 接口；目前仅 MemoryStore
 ├── tasks/             # 已迁移：任务中心、互斥规则
 ├── logx/              # 待迁移：日志 reader/query 接口
 └── systeminfo/        # 待迁移：进程/CPU/内存采样
@@ -107,32 +107,20 @@ type Deps struct {
 - 到期判断：`NextRun` 严格晚于当前时刻；停机漏跑只补一次。
 - 上轮任务仍在运行：本轮记 `skipped`，不堆积。
 - `Submit` 到 `tasks.Center`，`CreatedBy = "scheduler:<调度名>"`，同源任务因此互斥。
-- 重启接管：读取 `sys_schedule.pending_task_id`，任务仍 running 则继续等待；已终态则收口。
+- 重启接管目标：SQL Store 读取 `pending_task_id` 后核对任务仓储状态；当前任务中心也是内存态，进程重启后的任务记录需要由 P04 统一设计恢复语义，不能仅靠 schedule 表指针宣称可接管。
 - 关闭：`Stop` 取消扫描并等待跟踪协程退出，不等待任务执行完毕（任务由任务中心收口或随进程退出）；不删除登记行。
 
-### 3.3 表结构
+### 3.3 表结构与当前实现边界
 
-```sql
-CREATE TABLE sys_schedule (
-    name            VARCHAR(64) PRIMARY KEY,
-    title           VARCHAR(128) NOT NULL,
-    config_key      VARCHAR(128) NOT NULL,
-    plan_key        VARCHAR(128) NOT NULL DEFAULT '',
-    plan_every_min  INTEGER NOT NULL,
-    remark          VARCHAR(500) NOT NULL DEFAULT '',
-    last_status     VARCHAR(16) NOT NULL DEFAULT '',
-    last_message    VARCHAR(255) NOT NULL DEFAULT '',
-    last_task_id    VARCHAR(64) NOT NULL DEFAULT '',
-    pending_task_id VARCHAR(64) NOT NULL DEFAULT '',
-    last_run_at     TIMESTAMP NULL,
-    next_run_at     TIMESTAMP NULL,
-    updated_at      TIMESTAMP NOT NULL
-);
-```
+sys_schedule 的唯一字段口径见 DATA_DICT.md §4.3；本文不再复制第二份 DDL。关键约束：name 是主键；启停状态不落独立 enabled 列，而由 config_key 指向的配置项提供唯一真值；plan_key 为空时使用注册的 Plan；last_task_id 和 pending_task_id 不能混为一个字段。
+
+当前源码只提供 Store 接口和 MemoryStore，尚无 SQL Store；数据库表属于 P04 待实施持久化契约，不代表现有调度器已具备重启后的持久恢复。
 
 任务明细不重复存表，统一查 `infra/tasks` 的任务记录；调度表只保留上一轮结果和 pending 指针。
 
 ## 4. 凭据、服务器与数据源
+
+本节 sys_server / sys_datasource 是待评审的数据模型候选；字段口径收录在 DATA_DICT.md §5，正式纳入某一期前须在对应 DESIGN_PLAN 中完成数据结构、权限、密钥轮换与 SSH 连接生命周期决策。
 
 ### 4.1 凭据
 

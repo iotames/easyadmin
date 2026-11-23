@@ -1,41 +1,47 @@
 # Rocksys / EmailPlugin 通用能力迁移清单
 
-> 原则：直接依赖 easy 系列；rocksys/emailplugin 只迁移业务无关部分，业务表名、网关字段、邮件/容器语义不进入 `infra`。
+> 本文记录源码迁移状态，不等同于产品功能、数据库持久化或 WebUI 已交付。状态以当前仓库源码为准；“此前测试通过”不代表本轮已重新执行。
 
-## 1. 已迁移
+## 1. 已迁移的源码能力
 
-| 目标包 | 来源 | 迁移方式 | 说明 |
+| 目标包 | 来源 | 当前状态 | 尚未包含 |
 |---|---|---|---|
-| `infra/conf` | `rocksys/internal/conf` | 复制后通用化 | 保留注册制、默认值快照、来源优先级、热更、`List()`；环境变量前缀改为 `EASYADMIN_`；移除 upstream/timeout/WWWRoot/404 等网关字段；新增 `RegisterGroup`，配置项带 `group`/`order`，供前端按前缀分组 |
-| `infra/db` | `rocksys/internal/db` | 复制通用文件 | 保留 `TableSpec`、DDL 解析、多语句拆分、Catalog 查询、结构 Diff、安全 SQL 生成、幂等建表；移除 `shield_event`/`access_log`/`geoip_list` 等业务表常量 |
-| `infra/db/datasource.go` | `rocksys/internal/adminapi/dsn.go` + `easydb/dsn` | 抽象为仓储 | 保留命名数据源、DSN 去重、激活项和 JSON 持久化；HTTP handler 留给 `apps/system` |
-| `infra/tasks` | `rocksys/internal/taskcenter` | 原样复制 | 保留来源白名单、`MutexTaskField`/`MutexList`/`MutexMap` 三件套、取消、终态保留、panic 收口；包名改为 `tasks` |
-| `infra/credential` | `emailplugin/internal/credential` | 原样复制 | AES-256-GCM、SSH 测试、`~/.ssh/config` 别名、SSH 隧道；记录存储与页面留给 `apps/system` |
-| `infra/scheduler` | `emailplugin/internal/schedule` | 重写核心 | 保留 `Plan/Def/Entry/Runner`、到期扫描、漏跑补一次、上轮未结束跳过、重启接管；依赖改为 `infra/tasks` 和 `Store` 接口；当前提供内存 Store |
+| infra/conf | rocksys/internal/conf | 注册制配置、默认值快照、来源优先级、热更、List() 已迁移 | 配置来源/持久化元数据的完整管理 UI 契约仍需 P01 核验 |
+| infra/db | rocksys/internal/db | TableSpec、DDL 解析、多语句拆分、Catalog 查询、结构 Diff、安全 SQL 生成、幂等建表已迁移 | schema migration runner、size 等待迁移 |
+| infra/db/datasource.go | rocksys/internal/adminapi/dsn.go + easydb/dsn | 命名数据源、DSN 去重、激活项和 JSON 文件仓储已迁移 | 持久化到 EasyAdmin 系统数据库、应用管理 API |
+| infra/tasks | rocksys/internal/taskcenter | 任务注册、提交、进度快照、互斥、取消、终态保留和 panic 收口已迁移 | 当前纯内存；无数据库仓储、持久化任务日志、重启恢复、跨进程接管 |
+| infra/credential | emailplugin/internal/credential | AES-256-GCM、SSH 测试、~/.ssh/config 别名、SSH 隧道已迁移 | 服务器记录持久化、管理 API、权限和页面 |
+| infra/scheduler | emailplugin/internal/schedule | 调度核心已重写；有 Plan/Def/Entry/Runner、到期扫描、任务派发、Store 接口和 MemoryStore | 数据库 Store、持久化恢复与多实例保护 |
 
-## 2. 待迁移
+## 2. 待补齐或迁移
 
-| 目标包 | 来源 | 原因 |
+| 目标能力 | 来源 | 状态与约束 |
 |---|---|---|
-| `infra/db/migrate` | `rocksys/internal/adminapi/migrate.go` | 表迁移引擎与 HTTP handler、AdminServer、任务中心耦合，需先拆核心执行器 |
-| `infra/db/size` | `rocksys/internal/adminapi/dbsize.go` | 表空间统计可迁移，先抽方言查询和缓存 |
-| `infra/scheduler` 持久化 Store | `emailplugin/internal/schedule` + `sys_schedule` | 核心已迁移，`sys_schedule` Store 待接 |
-| `infra/logx` 查询 | `rocksys/internal/adminapi/handlers_log.go`、`execlogstore.go` | 日志查询/索引依赖 HTTP 层，需先定义 reader 接口 |
-| 系统信息 | `rocksys/internal/adminapi/handlers_system.go` | 进程/CPU/内存采样较通用，可后续迁移 |
-| 存储 | `emailplugin/internal/storage` | 接口与本地驱动可迁移，qiniu 驱动不进入核心 |
+| infra/db/migrate | rocksys/internal/adminapi/migrate.go | 表迁移引擎与 HTTP handler、AdminServer、任务中心耦合，先拆独立执行器 |
+| infra/db/size | rocksys/internal/adminapi/dbsize.go | 表空间统计可迁移，先抽方言查询与缓存 |
+| infra/tasks 持久化适配 | EasyAdmin 目标数据模型 | 以现有 tasks.Center 为执行/并发规则核心，补 Store/Repository 与恢复协议；不得平行重写任务中心 |
+| infra/scheduler 持久化 Store | 当前 scheduler.Store 接口 + sys_schedule | 对齐唯一数据字典后实现 SQL Store；配置键仍是启停唯一真源 |
+| infra/logx 查询 | rocksys/internal/adminapi/handlers_log.go、execlogstore.go | reader/query 接口待定义 |
+| 系统信息 | rocksys/internal/adminapi/handlers_system.go | 进程/CPU/内存采样待迁移 |
+| 存储 | emailplugin/internal/storage | 本地驱动和接口待迁移；qiniu 驱动不进入核心 |
 
 ## 3. 不迁移
 
 - rocksys 的代理、WAF、GeoIP 同步、Lua 热切换、网关限流；
 - emailplugin 的邮件 Graph、归档编排、ERP 同步；
 - kitbus 的容器引擎探测、镜像/实例管理；
-- 各项目的 HTTP handler 和页面：核心能力进 `infra`，后台页面进 `apps/system`。
+- 各项目 HTTP handler 和页面：核心能力进 infra，管理页面进 apps/system。
 
-## 4. 验证
+## 4. 历史验证记录与本轮验证边界
 
-```bash
+此前仓库文档记录以下命令已通过：go test ./infra/...、go vet ./infra/...，并在 README 记录过 go test -race ./infra/...。本轮通过 GitHub 源码接口检查了实现与文档，没有运行 Go 工具链，因此不把历史记录宣称为本轮测试结果。
+
+P0/P1 实施前应在实际工作区重新执行：
+
+~~~bash
 go test ./infra/...
+go test -race ./infra/...
 go vet ./infra/...
-```
+~~~
 
-当前 `infra/conf`、`infra/db`、`infra/tasks`、`infra/credential`、`infra/scheduler` 已通过。
+infra/tasks 和 infra/scheduler 当前仍为内存态；持久化能力归 P04 设计/实施，不得把“核心源码已迁移”写作“任务中心已经持久化”。

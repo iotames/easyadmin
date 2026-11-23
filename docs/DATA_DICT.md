@@ -248,35 +248,144 @@
 - `UNIQUE(task_no, seq)`
 - `INDEX(created_at)`
 
-### 4.3 `sys_schedule`
+### 4.3 sys_schedule
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
-| `id` | 自增主键 | PK | 主键 |
-| `name` | 短字符串(64) | NOT NULL, UNIQUE | 调度项名，与任务 kind 同名 |
-| `title` | 短字符串(128) | NOT NULL | 展示名 |
-| `plan_every_min` | INT | NOT NULL | 每隔多少分钟触发，1~525600 |
-| `enabled` | 布尔 | NOT NULL DEFAULT 0 | 是否启用 |
-| `last_run_at` | 时间 | NULL | 上次触发时间 |
-| `next_run_at` | 时间 | NULL | 下次触发时间 |
-| `last_status` | 短字符串(16) | NOT NULL DEFAULT '' | `success` / `failed` / `skipped` |
-| `last_task_no` | 短字符串(64) | NOT NULL DEFAULT '' | 上次任务编号 |
-| `last_error` | 长文本 | NOT NULL DEFAULT '' | 上次错误摘要 |
-| `created_at` | 时间 | NOT NULL | 创建时间 |
-| `updated_at` | 时间 | NOT NULL | 更新时间 |
+| name | 短字符串(64) | PK | 调度项稳定名称 |
+| title | 短字符串(128) | NOT NULL | 展示名 |
+| config_key | 短字符串(128) | NOT NULL | 启停配置键；启停唯一真源 |
+| plan_key | 短字符串(128) | NOT NULL DEFAULT '' | 周期配置键；为空时采用注册的固定计划 |
+| plan_every_min | INT | NOT NULL | 当前生效周期，1~525600 分钟 |
+| remark | 短字符串(500) | NOT NULL DEFAULT '' | 说明 |
+| last_status | 短字符串(16) | NOT NULL DEFAULT '' | 最近一次调度结果 |
+| last_message | 短字符串(255) | NOT NULL DEFAULT '' | 最近一次结果摘要 |
+| last_task_id | 短字符串(64) | NOT NULL DEFAULT '' | 最近一次派发的任务 ID |
+| pending_task_id | 短字符串(64) | NOT NULL DEFAULT '' | 当前待跟踪任务 ID |
+| last_run_at | 时间 | NULL | 最近一次任务收口时间 |
+| next_run_at | 时间 | NULL | 下次计划触发时间 |
+| updated_at | 时间 | NOT NULL | 更新时间 |
 
 索引：
+- INDEX(next_run_at)
+- INDEX(last_status)
 
-- `UNIQUE(name)`
-- `INDEX(enabled, next_run_at)`
+唯一事实源与约束：
+- name 是主键，不另建自增 id。
+- 不存储 enabled 列；启停状态由 config_key 指向的配置项计算，避免配置中心与数据库双真相。
+- plan_key 为空时采用代码注册的 Plan；非空时读取该配置键并验证为 1~525600 的整数分钟。
+- last_task_id 是最近派发任务，pending_task_id 是当前正在跟踪的任务指针；任务详情由 Task Center 提供，不在调度表重复存储。
+- 本表定义的是目标 SQL Store 持久化契约；现有 infra/scheduler 只有 Store 接口和 MemoryStore，数据库实现待 P04。
+- P04 必须明确任务中心重启后状态恢复与调度 pending_task_id 的一致性，不能将仅持久化调度指针视为任务接管完成。
 
-规则：
+SQL 逻辑定义（各方言按通用类型映射生成对应脚本）：
 
-- 上一轮任务未结束时，本轮记 `skipped`，不排队；
-- 周期与开关可热更；
-- 调度项由模块注册，启动时同步到表。
+~~~sql
+CREATE TABLE sys_schedule (
+    name            VARCHAR(64) PRIMARY KEY,
+    title           VARCHAR(128) NOT NULL,
+    config_key      VARCHAR(128) NOT NULL,
+    plan_key        VARCHAR(128) NOT NULL DEFAULT '',
+    plan_every_min  INTEGER NOT NULL,
+    remark          VARCHAR(500) NOT NULL DEFAULT '',
+    last_status     VARCHAR(16) NOT NULL DEFAULT '',
+    last_message    VARCHAR(255) NOT NULL DEFAULT '',
+    last_task_id    VARCHAR(64) NOT NULL DEFAULT '',
+    pending_task_id VARCHAR(64) NOT NULL DEFAULT '',
+    last_run_at     TIMESTAMP NULL,
+    next_run_at     TIMESTAMP NULL,
+    updated_at      TIMESTAMP NOT NULL
+);
+CREATE INDEX idx_sys_schedule_next_run_at ON sys_schedule(next_run_at);
+~~~
 
-## 5. 文件
+## 5. 服务器与命名数据源（候选，待阶段评审）
+
+本节来自 INFRA_SCHEDULER_AND_CREDENTIALS.md 的方案，尚未成为已批准的核心表契约。建议在 P04 作为服务器/SSH 运维能力设计一并评审；若 P02 需要先持久化命名数据源，应在 P02 设计确认前重新划分依赖与交付顺序。
+
+### 5.1 sys_server
+
+| 字段 | 类型 | 约束 | 说明 |
+|---|---|---|---|
+| id | BIGINT | PK | 服务器 ID |
+| name | 短字符串(64) | NOT NULL, UNIQUE | 稳定名称 |
+| connect_type | 短字符串(16) | NOT NULL | direct / config |
+| host | 短字符串(255) | NOT NULL DEFAULT '' | 主机地址 |
+| port | INTEGER | NOT NULL DEFAULT 22 | SSH 端口 |
+| username | 短字符串(64) | NOT NULL DEFAULT '' | SSH 用户 |
+| auth_type | 短字符串(16) | NOT NULL | key / password |
+| key_path | 短字符串(500) | NOT NULL DEFAULT '' | 私钥路径引用，不复制私钥明文 |
+| password_enc | TEXT | NOT NULL DEFAULT '' | AES-256-GCM 加密凭据 |
+| config_alias | 短字符串(64) | NOT NULL DEFAULT '' | SSH config 别名 |
+| remark | 短字符串(500) | NOT NULL DEFAULT '' | 说明 |
+| last_test_at | 时间 | NULL | 最近测试时间 |
+| last_test_ok | 布尔 | NOT NULL DEFAULT 0 | 最近测试是否成功 |
+| last_test_error | 短字符串(500) | NOT NULL DEFAULT '' | 脱敏错误摘要 |
+| created_at | 时间 | NOT NULL | 创建时间 |
+| updated_at | 时间 | NOT NULL | 更新时间 |
+
+约束：唯一索引 name；不得记录密码/私钥明文；known_hosts 校验失败不得自动降级跳过；凭据轮换必须有重新录入/迁移路径。
+
+### 5.2 sys_datasource
+
+| 字段 | 类型 | 约束 | 说明 |
+|---|---|---|---|
+| id | BIGINT | PK | 数据源 ID |
+| name | 短字符串(64) | NOT NULL, UNIQUE | 稳定名称 |
+| driver | 短字符串(32) | NOT NULL | 数据库驱动 |
+| dialect | 短字符串(32) | NOT NULL | SQL 方言 |
+| role | 短字符串(16) | NOT NULL | readwrite / readonly |
+| dsn_enc | TEXT | NOT NULL DEFAULT '' | AES-256-GCM 加密 DSN |
+| server_id | BIGINT | NULL, FK | 可选 SSH 隧道服务器，引用 sys_server.id |
+| active | 布尔 | NOT NULL DEFAULT 0 | 当前激活项 |
+| remark | 短字符串(500) | NOT NULL DEFAULT '' | 说明 |
+| created_at | 时间 | NOT NULL | 创建时间 |
+| updated_at | 时间 | NOT NULL | 更新时间 |
+
+约束：唯一索引 name；同一时刻至多一个 active 项（需在事务/数据库约束层保证）；删除被活动连接引用的数据源前必须阻止或显式切换；DSN 密文不得通过 API 回显。
+
+### 5.3 关系与 SQL 逻辑定义
+
+- sys_datasource.server_id 可空引用 sys_server.id；服务器不得在仍被数据源引用时删除。
+- password_enc 与 dsn_enc 仅存储由 infra/credential 加密的密文；密钥不入库、不进入日志。
+- sys_datasource 当前尚无 SQL 表/仓储实现；infra/db/datasource.go 是 JSON 文件仓储，不是此表的实现。
+
+~~~sql
+CREATE TABLE sys_server (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(64) NOT NULL UNIQUE,
+    connect_type VARCHAR(16) NOT NULL,
+    host VARCHAR(255) NOT NULL DEFAULT '',
+    port INTEGER NOT NULL DEFAULT 22,
+    username VARCHAR(64) NOT NULL DEFAULT '',
+    auth_type VARCHAR(16) NOT NULL,
+    key_path VARCHAR(500) NOT NULL DEFAULT '',
+    password_enc TEXT NOT NULL DEFAULT '',
+    config_alias VARCHAR(64) NOT NULL DEFAULT '',
+    remark VARCHAR(500) NOT NULL DEFAULT '',
+    last_test_at TIMESTAMP NULL,
+    last_test_ok BOOLEAN NOT NULL DEFAULT FALSE,
+    last_test_error VARCHAR(500) NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE sys_datasource (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(64) NOT NULL UNIQUE,
+    driver VARCHAR(32) NOT NULL,
+    dialect VARCHAR(32) NOT NULL,
+    role VARCHAR(16) NOT NULL,
+    dsn_enc TEXT NOT NULL DEFAULT '',
+    server_id BIGINT NULL REFERENCES sys_server(id),
+    active BOOLEAN NOT NULL DEFAULT FALSE,
+    remark VARCHAR(500) NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+~~~
+
+## 6. 文件
 
 ### 5.1 `sys_file`
 
@@ -306,7 +415,7 @@
 - 删除先软删，物理清理由任务执行；
 - 物理删除前确认无业务引用。
 
-## 6. 迁移
+## 7. 迁移
 
 ### 6.1 `sys_migration`
 
@@ -326,7 +435,7 @@
 - 启动时先应用 `core`，再按 app 依赖顺序应用业务迁移。
 - 破坏性迁移需显式确认。
 
-## 7. 表清单与期次
+## 8. 表清单与期次
 
 | 表 | 期次 | 说明 |
 |---|---|---|
@@ -342,8 +451,10 @@
 | `sys_task_log` | P4 | 任务日志 |
 | `sys_schedule` | P4 | 调度 |
 | `sys_file` | P4 | 文件 |
+| `sys_server` | P4（候选，待评审） | SSH 服务器与凭据引用 |
+| `sys_datasource` | P04 候选；可在 P02/P04 评审时重划 | 加密命名数据源 |
 
-## 8. 变更红线
+## 9. 变更红线
 
 修改任何表字段、默认值、枚举时，必须同时更新：
 
@@ -356,14 +467,14 @@
 只改其中一处视为未完成。
 
 
-## 9. API 与数据类型一致性
+## 10. API 与数据类型一致性
 
 - 核心表自增主键在 Go 中统一使用 `int64`，JSON 中使用整数；禁止部分 API 把同一字段编码为数字、部分编码为字符串。
 - `task_no`、对象 key 等业务标识可使用字符串，但不得与数据库自增主键混为一谈。
 - PostgreSQL/MySQL 的具体自增类型、时间精度、布尔和 JSON 映射必须由方言迁移测试验证，不以表格定义代替实测。
 - 对外接口不暴露 `sql.Null*`、驱动私有类型或数据库内部错误。
 
-## 10. 迁移执行红线
+## 11. 迁移执行红线
 
 - 模块 `Register` 只登记迁移资源，不直接执行 DDL。
 - 迁移器统一负责版本检查、checksum、锁/并发保护、执行记录和失败诊断。
