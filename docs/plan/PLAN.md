@@ -1,62 +1,17 @@
-# 分期计划管理规范
+# 分期计划索引
 
-## 1. 计划文件与目录
+本文件仅为兼容旧链接保留，不再定义计划治理规则。
 
-每一期严格一对文件：
+**唯一权威规范：** [docs/plan/README.md](README.md)
 
-```text
-docs/plan/PHASE-xx-NAME/
-├── DESIGN_PLAN.md
-└── IMPL_PLAN.md
-```
+所有阶段均按上述规范执行。计划配对如下：
 
-本项目当前七期为 P00–P06。不要为同一期创建多份同名计划，也不要只保留实现清单而缺设计说明。
-
-## 2. 两类计划的职责
-
-### DESIGN_PLAN.md 必须回答
-
-- 为什么做、目标和边界是什么；
-- 本期包含什么、明确不做什么；
-- 影响哪些架构、模块、API、配置、数据和 UI 契约；
-- 设计取舍、兼容性、风险和验收标准；
-- 哪些事项待用户决策。
-
-它不写具体文件逐步施工命令，不以实现便利改变总体设计。
-
-### IMPL_PLAN.md 必须回答
-
-- 开工前检查什么；
-- 修改哪些文件/目录，按什么顺序分步实施；
-- 每一步如何测试、如何验收；
-- 文档同步、风险、数据恢复和代码回退如何处理；
-- 实施实际偏差和证据如何记录。
-
-它不能自行扩大 DESIGN_PLAN 的范围。
-
-## 3. 严格流程
-
-1. 现状审查与事实基线；
-2. 编写 DESIGN_PLAN；
-3. 用户评审并确认设计；
-4. 基于当前代码校准 IMPL_PLAN；
-5. 用户明确授权实施；
-6. 分步实施和验证；
-7. 记录偏差、测试证据、遗留风险；
-8. 阶段验收后更新计划状态并开始下一期。
-
-设计确认不等于实施授权。阶段不得跨越依赖关系偷跑。
-
-## 4. 状态标记
-
-- `PROPOSED`：草案，待评审。
-- `APPROVED`：设计已确认；实施仍需明确授权。
-- `IN_PROGRESS`：已授权实施。
-- `ACCEPTED`：验收完成，证据归档。
-- `BLOCKED`：被外部依赖、事实核验或决策阻塞。
-
-不得把未执行的测试勾选为通过。
-
-## 5. 变更治理
-
-若实施发现方案不能满足实际底层 API、数据兼容或安全要求：暂停受影响步骤，记录证据，更新 DESIGN_PLAN/DECISIONS，经评审后再实施。不要为赶进度私自变更公开契约。
+| 阶段 | 设计计划 | 实施计划 | 前置验收 |
+|---|---|---|---|
+| P00 | [DESIGN_PLAN](PHASE-00-FOUNDATION/DESIGN_PLAN.md) | [IMPL_PLAN](PHASE-00-FOUNDATION/IMPL_PLAN.md) | 无 |
+| P01 | [DESIGN_PLAN](PHASE-01-RUNTIME/DESIGN_PLAN.md) | [IMPL_PLAN](PHASE-01-RUNTIME/IMPL_PLAN.md) | P00 |
+| P02 | [DESIGN_PLAN](PHASE-02-DATA-IDENTITY/DESIGN_PLAN.md) | [IMPL_PLAN](PHASE-02-DATA-IDENTITY/IMPL_PLAN.md) | P01 |
+| P03 | [DESIGN_PLAN](PHASE-03-WEBUI/DESIGN_PLAN.md) | [IMPL_PLAN](PHASE-03-WEBUI/IMPL_PLAN.md) | P02 |
+| P04 | [DESIGN_PLAN](PHASE-04-OPERATIONS/DESIGN_PLAN.md) | [IMPL_PLAN](PHASE-04-OPERATIONS/IMPL_PLAN.md) | P03 |
+| P05 | [DESIGN_PLAN](PHASE-05-CLI-ECOSYSTEM/DESIGN_PLAN.md) | [IMPL_PLAN](PHASE-05-CLI-ECOSYSTEM/IMPL_PLAN.md) | P04 |
+| P06 | [DESIGN_PLAN](PHASE-06-STABILITY-RELEASE/DESIGN_PLAN.md) | [IMPL_PLAN](PHASE-06-STABILITY-RELEASE/IMPL_PLAN.md) | P05 |

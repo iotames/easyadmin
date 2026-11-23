@@ -2,7 +2,7 @@
 
 > 以自研 `easyconf`、`easydb`、`easyserver` 为地基的 Go 中后台框架。把 Web 业务之外的基础设施收敛为一套透明、可组合、可独立演进的公共底座，让业务项目主要关注领域模型、业务规则和业务页面。
 
-当前状态：**总体设计草案已形成，部分基础约束已确认；P0 设计仍为 `PROPOSED`，实施尚未开始**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码；其中任务中心和调度 Store 当前为内存实现。`cmd`、`kernel`、`apps`、`webui`、`sql` 尚未建立。既有基础设施以实际源码为基线，P0 先核验和补齐，不按空仓库重复建设。此前文档记录 `go test -race ./infra/...` 已通过，P0 仍须在当前基线重新执行并留存验证证据。
+当前状态：**总体设计草案已形成，部分基础约束已确认；P0 设计仍为 `PROPOSED`，实施尚未开始**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码；其中任务中心和调度 Store 当前为内存实现。`cmd`、`kernel`、`apps`、`webui`、`sql` 尚未建立。既有基础设施以实际源码为基线，P0 先核验和补齐，不按空仓库重复建设。此前文档记录 `go test -race ./infra/...` 已通过，但本轮未执行 Go 测试；P0 仍须按当前基线重新执行并留存证据。
 
 已确认：**API 统一使用 `/api/` 前缀，不设路径版本号，接口从首个公开版本起向下兼容，只增不改。**
 
