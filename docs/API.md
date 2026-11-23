@@ -150,7 +150,7 @@
 | `sort` | query | 排序字段，必须在资源白名单内 |
 | `order` | query | `asc` / `desc`，默认 `desc` |
 
-未知字段、非法排序字段、JSON 格式错误和参数类型转换失败返回 400；请求成功绑定后，字段或跨字段输入约束不满足返回 422；因已存在数据或资源当前状态产生的冲突返回 409。
+未知字段、非法排序字段、JSON 格式错误和参数类型转换失败返回 400；请求成功绑定后，字段或跨字段输入约束不满足返回 422；因已存在数据或资源当前状态产生的冲突返回 409；上传内容超过配置大小限制返回 413。
 
 ## 5. 元信息
 
@@ -438,9 +438,9 @@
 | `SYSTEM_USER_NOT_FOUND` | 404 | 用户不存在 |
 | `SYSTEM_USER_DUPLICATE` | 409 | 用户名已存在 |
 | `SYSTEM_ROLE_IN_USE` | 409 | 角色仍被用户引用 |
-| `SYSTEM_CONFIG_READONLY` | 400 | 配置项不可运行期修改 |
-| `SYSTEM_TASK_NOT_RETRYABLE` | 400 | 任务类型未注册重试 |
-| `SYSTEM_FILE_TOO_LARGE` | 400 | 上传超限 |
+| `SYSTEM_CONFIG_READONLY` | 409 | 配置项当前不可运行期修改 |
+| `SYSTEM_TASK_NOT_RETRYABLE` | 409 | 任务当前状态或类型不支持重试 |
+| `SYSTEM_FILE_TOO_LARGE` | 413 | 上传内容超过大小限制 |
 | `COMMON_INVALID_ARGUMENT` | 400 | 参数格式、结构或类型错误 |
 | `COMMON_VALIDATION_FAILED` | 422 | 字段或跨字段输入校验失败 |
 | `COMMON_NOT_FOUND` | 404 | 资源不存在 |
