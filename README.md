@@ -2,7 +2,7 @@
 
 > 以自研 `easyconf`、`easydb`、`easyserver` 为地基的 Go 中后台框架。把 Web 业务之外的基础设施收敛为一套透明、可组合、可独立演进的公共底座，让业务项目主要关注领域模型、业务规则和业务页面。
 
-当前状态：**设计基线已定，P0 实施尚未开始**。地基库的通用能力（配置、数据、任务、调度、凭据）已迁移到 `infra/` 并通过 `go test -race ./infra/...`；`kernel`、`apps`、`webui`、`cmd` 仍未创建，架构与阶段决策须经评审后才能转入实现。
+当前状态：**总体设计草案已形成，部分基础约束已确认；P0 设计仍为 `PROPOSED`，实施尚未开始**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码；其中任务中心和调度 Store 当前为内存实现。`cmd`、`kernel`、`apps`、`webui`、`sql` 尚未建立。既有基础设施以实际源码为基线，P0 先核验和补齐，不按空仓库重复建设。此前文档记录 `go test -race ./infra/...` 已通过，P0 仍须在当前基线重新执行并留存验证证据。
 
 已确认：**API 统一使用 `/api/` 前缀，不设路径版本号，接口从首个公开版本起向下兼容，只增不改。**
 
@@ -51,7 +51,7 @@ easyadmin module add orders
 ```text
 cmd/                  唯一组合根：创建 App、装配基础设施服务和 app、启动/停机
 ├── kernel/           App、Module 契约、注册表、生命周期（不依赖具体 infra）
-├── infra/           基础设施唯一入口：conf/logx/db/httpapi/auth/tasks/scheduler/storage/audit
+├── infra/           基础设施统一入口：conf/db/credential/tasks/scheduler，以及后续补齐的 logx/httpapi/auth/audit/storage
 │   └── internal/     easy 系列适配器与私有实现
 ├── apps/             按业务域组织的内置应用和业务应用
 └── webui/            原生 ESM 前端内核、通用组件、模块页面和测试面
