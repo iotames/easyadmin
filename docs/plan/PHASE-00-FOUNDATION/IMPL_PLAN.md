@@ -12,13 +12,14 @@
 
 ## 2. 实施步骤
 
-1. 审查并确定仓库目录、go.mod、workspace/replace/子模块策略。
-2. 固定 Go 工具链和直接依赖准入清单，记录许可证与安全核查结果。
-3. 建立 cmd/kernel/infra/apps/webui/sql/docs 目录骨架。
-4. 建立 Go build/test/vet/race 的 CI 和原生命令。
-5. 建立 WebUI embed 与 dev 文件读取的最小切换实现。
-6. 建立依赖方向和禁用入口的架构测试，并加入故意违规样例。
-7. 运行干净环境验收，修复文档、目录和命令不一致。
+1. **设计基线核验**：核对 DESIGN_PLAN、ARCHITECTURE、DECISIONS、COMPONENTS、CONVENTIONS 与 ROADMAP；确保公共组件约定和请求校验分层已同步，不擅自改变未获批准的架构边界。
+2. **仓库与依赖审查**：审查实际目录、go.mod、workspace/replace/子模块策略及 easy 系列固定提交；核验 Go 工具链和直接依赖准入清单，记录许可证与安全核查结果。
+3. **冻结工程入口**：确定唯一组合根、包依赖方向、开发/测试/构建命令及必要的 Makefile/脚本；禁止为统一而创建万能接口。
+4. **建立目录骨架**：建立经设计确认的 cmd/kernel/infra/apps/webui/sql/docs 目录，不创建本期范围之外的业务模块。
+5. **建立 CI 反馈环**：建立 Go build/test/vet/race 的 CI 和原生命令，确保失败可定位、输出可读。
+6. **建立 WebUI 资源模式**：建立 WebUI embed 与 dev 文件读取的最小切换实现。
+7. **建立架构测试**：建立依赖方向和禁用入口的架构测试，并加入故意违规样例；覆盖组件目录边界、裸 fetch 和底层库绕行。
+8. **干净环境验收**：运行构建、测试、静态检查和文档校验，修复文档、目录和命令不一致；所有未能实测的 easy 系列语义列为后续验证项。
 
 ## 3. 主要修改文件/目录
 
@@ -26,6 +27,7 @@
 - `cmd/easyadmin/` 最小入口、`kernel/` 最小 App。
 - `webui/embed*.go`、最小 `index.html`。
 - `docs/`、`AGENTS.md` 和架构测试目录。
+- `docs/COMPONENTS.md`、`docs/CONVENTIONS.md` 与本期成对计划中的公共组件和校验边界。
 
 实际文件以实施前仓库核对为准；如与此计划不同，先更新计划并记录原因。
 
