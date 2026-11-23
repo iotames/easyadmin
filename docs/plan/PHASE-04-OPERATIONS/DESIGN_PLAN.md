@@ -63,7 +63,9 @@
 |---|---|---|
 | id | BIGINT PK | 内部主键 |
 | task_no | VARCHAR(64) UNIQUE NOT NULL | 稳定任务号 |
-| parent_no | VARCHAR(64) NULL | 父任务号，最多两级 |
+| parent_no | VARCHAR(64) NULL | 业务父任务号，最多两级 |
+| attempt_no | INTEGER NOT NULL DEFAULT 1 | 执行尝试序号 |
+| retry_of_no | VARCHAR(64) NULL | 前一次尝试 task_no |
 | kind | VARCHAR(64) NOT NULL | 注册任务类型 |
 | title | VARCHAR(255) NOT NULL | 展示标题 |
 | status | VARCHAR(16) NOT NULL | pending/running/success/failed/cancelled/skipped/interrupted |
@@ -150,7 +152,7 @@
 ### 6.6 SQL 逻辑与关系
 
 表关系：
-- sys_task.parent_no 自关联 task_no；sys_task_log.task_no 关联 sys_task.task_no。
+- sys_task.parent_no 自关联业务父任务；retry_of_no 自关联上一次执行尝试；sys_task_log.task_no 关联 sys_task.task_no。
 - sys_schedule.last_task_id/pending_task_id 指向 sys_task.task_no。
 - sys_file.created_by 可关联 sys_user.id（用户删除策略需与审计保留规则一致）。
 - sys_server 独立保存 SSH 目标与加密凭据，不存私钥明文。
@@ -162,6 +164,8 @@ CREATE TABLE sys_task (
   id BIGINT PRIMARY KEY,
   task_no VARCHAR(64) NOT NULL UNIQUE,
   parent_no VARCHAR(64) NULL,
+  attempt_no INTEGER NOT NULL DEFAULT 1,
+  retry_of_no VARCHAR(64) NULL,
   kind VARCHAR(64) NOT NULL,
   title VARCHAR(255) NOT NULL,
   status VARCHAR(16) NOT NULL,
@@ -180,6 +184,7 @@ CREATE TABLE sys_task (
 CREATE INDEX idx_sys_task_kind_status ON sys_task(kind, status);
 CREATE INDEX idx_sys_task_parent_no ON sys_task(parent_no);
 CREATE INDEX idx_sys_task_created_at ON sys_task(created_at);
+CREATE INDEX idx_sys_task_retry_of_no ON sys_task(retry_of_no);
 
 CREATE TABLE sys_task_log (
   id BIGINT PRIMARY KEY,
@@ -235,7 +240,7 @@ sys_schedule 的 SQL 见 DATA_DICT.md §4.3，避免复制第二套表定义。�
 3. 执行 progress/log 通过有界节流写入；终态和 result/error 在一次事务中持久化。
 4. 取消由 context 取消请求与状态转换协同完成；终态不可被重新转换为 running。
 5. 进程启动扫描遗留 running：默认标记 interrupted 并记录原因。
-6. 只有显式注册 Retry/Resume handler 且业务幂等的 kind 才允许创建新的 attempt；禁止伪装为从进程中断位置续跑。
+6. 只有显式注册 Retry handler 且业务幂等的 kind 才允许创建新任务记录：生成新的 task_no、attempt_no 递增、retry_of_no 指向前一次尝试；禁止伪装为从进程中断位置续跑。
 7. Scheduler 从 SQL Store 读取到期条目；创建任务成功后记录 pending_task_id。任务收口后更新结果与 next_run_at。
 8. task 写入成功而 schedule 更新失败、或反之，需通过幂等关联和启动 reconciliation 修复；不得吞掉 Store 错误。
 

@@ -12,7 +12,7 @@ emailplugin 的调度器比 rocksys 的“登记表 + 展示”更完整：
 - `Def`/`Entry`/`Runner` 分离；
 - 到期扫描、漏跑补一次、上轮未结束跳过；
 - 任务提交到任务中心，不自己执行业务；
-- 重启后接管 pending 任务；
+- 持久化 Store 与任务 Store 均实现后，可按 pending_task_id 对账；当前代码只有 MemoryStore，不具备进程重启后的持久接管；
 - 调度名与任务 kind 同名，查询关系可逆。
 
 rocksys 只保留两点：登记表用于统一展示，配置键作为启停唯一真源。
@@ -31,8 +31,8 @@ emailplugin 已经具备服务器记录、AES-256-GCM 加密、私钥/密码认�
 ### 1.3 数据源：融合两者
 
 - Bootstrap 数据源：启动前就要用，放 `infra/conf`（`EASYADMIN_DB_DRIVER`、`EASYADMIN_DB_DSN`）。
-- 运行期数据源：初始化完成后放 `sys_datasource`，支持命名、只读/读写角色、SSH 隧道和脚本方言。
-- rocksys 的“激活数据源”保留为 `sys_datasource.active`，但不再用明文 dsn.json 作为主存储。
+- 运行期命名数据源可作为后续能力候选，支持只读/读写角色、SSH 隧道和脚本方言；当前尚未批准其 SQL 表模型。
+- 当前 `infra/db/datasource.go` 使用 JSON 文件仓储；不得将其描述成 `sys_datasource` 已落库。密文存储、激活切换和迁移时机需另行完成设计评审。
 
 ## 2. infra 包边界
 

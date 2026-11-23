@@ -15,7 +15,7 @@
 
 1. **复用并扩展任务中心**：审计现有 Center、状态类型、并发互斥、取消和终态保留；先定义持久化 Store 接口和状态映射，不复制另一个 Center。
 2. **任务持久化**：提交/开始/进度/日志/终态的原子边界；增加 kind+payload handler 注册和 attempt/retry 语义。
-3. **恢复协议**：启动将遗留 running 标记 interrupted；仅幂等且明确注册的任务允许重新排队，禁止宣称从闭包中断点恢复。
+3. **恢复协议**：启动将遗留 running 标记 interrupted；仅幂等且明确注册的任务允许新建一次尝试（新 task_no、attempt_no 递增、retry_of_no 追溯前次），禁止宣称从闭包中断点恢复。
 4. **Scheduler SQL Store**：复用现有 Scheduler/Store 接口；按 DATA_DICT 唯一 sys_schedule schema 实现 SQL Store，处理 task 与 schedule 双写一致性。
 5. **可控时钟调度回归**：扫描、漏跑、skip 记账、活动任务防重和 Store 故障测试。
 6. 实现本地 Storage 原子写入、内容哈希、元数据、软删除、鉴权下载和安全清理。
