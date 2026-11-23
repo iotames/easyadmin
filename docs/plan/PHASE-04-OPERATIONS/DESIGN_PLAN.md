@@ -47,7 +47,7 @@
 - 任务以稳定 kind + payload + 注册 Handler 描述可重试/可重放操作；不能只存闭包。
 - 任务提交/执行/完成状态必须由单一状态机维护；存储失败不能静默丢失任务。
 - 当前 tasks.Center 主要状态与目标持久化状态需显式映射：现有 done 映射为对外 success；重启遗留 running 记录收口为 interrupted；pending、skipped 等状态只有在执行队列/调度语义实现后才可产生。
-- 重启恢复不等于从函数中间位置续跑：未完成任务先标为 interrupted；仅注册为幂等且允许重试的 kind 可以重新创建执行尝试，保留原 task_no 与 attempt 关系。
+- 重启恢复不等于从函数中间位置续跑：未完成任务先标为 interrupted；仅注册为幂等且允许重试的 kind 可以重新创建执行尝试，生成新的 task_no，attempt_no 递增，retry_of_no 指向前一次尝试。
 - Scheduler 使用唯一 sys_schedule 数据模型；config_key 是启停唯一真源，不额外加 enabled 列。
 - Scheduler 的 pending_task_id 必须引用真实可查询的任务记录；Task Store 和 Scheduler Store 的更新顺序、事务边界及孤儿清理策略必须在实现设计中明确。
 - 文件元数据与文件内容分离；对象 key 由服务端产生；所有下载经过权限检查。
@@ -179,11 +179,14 @@ CREATE TABLE sys_task (
   started_at TIMESTAMP NULL,
   finished_at TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL,
-  updated_at TIMESTAMP NOT NULL
+  updated_at TIMESTAMP NOT NULL,
+  FOREIGN KEY(parent_no) REFERENCES sys_task(task_no),
+  FOREIGN KEY(retry_of_no) REFERENCES sys_task(task_no)
 );
 CREATE INDEX idx_sys_task_kind_status ON sys_task(kind, status);
 CREATE INDEX idx_sys_task_parent_no ON sys_task(parent_no);
 CREATE INDEX idx_sys_task_created_at ON sys_task(created_at);
+CREATE INDEX idx_sys_task_retry_of_no ON sys_task(retry_of_no);
 CREATE INDEX idx_sys_task_retry_of_no ON sys_task(retry_of_no);
 
 CREATE TABLE sys_task_log (

@@ -31,14 +31,14 @@
 
 | 现状 | 源码证据 | 结论 |
 |---|---|---|
-| 配置管理已存在 | \`infra/conf/interface.go\`、\`infra/conf/config.go\` | 有 Manager、ConfigItem、Set、Watch、List；来源元数据/安全持久化写入仍须核验 |
-| 数据库通用能力已存在 | \`infra/db/\` | 有 DDL/Catalog/Diff 等基础实现；不能等同于完整 migration runner |
-| 命名数据源管理已存在 | \`infra/db/datasource.go\` | 当前是 JSON 文件仓储，不是 \`sys_datasource\` SQL 表 |
-| 凭据与 SSH 能力已存在 | \`infra/credential/credential.go\` | AES-GCM、SSH 测试、别名与隧道能力已迁移；服务器管理 API/存储未实现 |
-| 任务中心已存在 | \`infra/tasks/taskcenter.go\` | 当前纯内存；重启后任务状态丢失；终态只保留最近 500 条 |
-| 调度核心已存在 | \`infra/scheduler/scheduler.go\` | 有 Store 接口与 MemoryStore；数据库 Store 未实现 |
-| 地基库依赖已有版本记录 | \`go.mod\`、\`go.sum\`、\`.gitmodules\` | Go 与 easy 系列版本已有候选固定值；P0 应做可复现与兼容核验，不从空白选版本 |
-| 运行时上层骨架尚未建立 | 当前树中无 \`cmd/\`、\`kernel/\`、\`apps/\`、\`webui/\`、\`sql/\` | P0 只建立经确认的最小骨架 |
+| 配置管理已存在 | `infra/conf/interface.go`、`infra/conf/config.go` | 有 Manager、ConfigItem、Set、Watch、List；来源元数据/安全持久化写入仍须核验 |
+| 数据库通用能力已存在 | `infra/db/` | 有 DDL/Catalog/Diff 等基础实现；不能等同于完整 migration runner |
+| 命名数据源管理已存在 | `infra/db/datasource.go` | 当前是 JSON 文件仓储，不是 `sys_datasource` SQL 表 |
+| 凭据与 SSH 能力已存在 | `infra/credential/credential.go` | AES-GCM、SSH 测试、别名与隧道能力已迁移；服务器管理 API/存储未实现 |
+| 任务中心已存在 | `infra/tasks/taskcenter.go` | 当前纯内存；重启后任务状态丢失；终态只保留最近 500 条 |
+| 调度核心已存在 | `infra/scheduler/scheduler.go` | 有 Store 接口与 MemoryStore；数据库 Store 未实现 |
+| 地基库依赖已有版本记录 | `go.mod`、`go.sum`、`.gitmodules` | Go 与 easy 系列版本已有候选固定值；P0 应做可复现与兼容核验，不从空白选版本 |
+| 运行时上层骨架尚未建立 | 当前树中无 `cmd/`、`kernel/`、`apps/`、`webui/`、`sql/` | P0 只建立经确认的最小骨架 |
 
 当前基线依赖记录：go.mod 声明 Go 1.26.0，并以本地 lib 子模块/replace 接入 easy 系列。最终可复现性以实际 submodule commit、go list -m all、go mod verify 与干净环境构建结果为准。本轮只检查仓库文本和源码，不声称已运行 Go 测试。
 
