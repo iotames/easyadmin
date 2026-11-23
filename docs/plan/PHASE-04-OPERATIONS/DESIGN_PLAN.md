@@ -187,7 +187,6 @@ CREATE INDEX idx_sys_task_kind_status ON sys_task(kind, status);
 CREATE INDEX idx_sys_task_parent_no ON sys_task(parent_no);
 CREATE INDEX idx_sys_task_created_at ON sys_task(created_at);
 CREATE INDEX idx_sys_task_retry_of_no ON sys_task(retry_of_no);
-CREATE INDEX idx_sys_task_retry_of_no ON sys_task(retry_of_no);
 
 CREATE TABLE sys_task_log (
   id BIGINT PRIMARY KEY,

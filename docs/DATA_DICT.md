@@ -231,6 +231,7 @@
 
 - `pending` / `running` 任务永不被清理；
 - 进程启动发现遗留 `running` 时，标记 `interrupted`，不声称恢复执行现场；
+- 当前 `infra/tasks` 的 `done` 映射为持久化 `success`；`pending`、`skipped`、`interrupted` 由持久化执行/恢复适配层定义，不代表现有内存 API 已提供这些状态；
 - 每次重试创建新的 `task_no`，`attempt_no` 递增，`retry_of_no` 指向前一次尝试；`parent_no` 只表示业务父子任务；
 - 终态保留期由配置决定。
 

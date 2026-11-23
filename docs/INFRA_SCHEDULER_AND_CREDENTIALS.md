@@ -157,41 +157,12 @@ CREATE TABLE sys_server (
 );
 ```
 
-### 4.3 数据源表 `sys_datasource`
+### 4.3 运行期命名数据源（候选，暂不纳入本期）
 
-```sql
-CREATE TABLE sys_datasource (
-    id          BIGINT PRIMARY KEY,
-    name        VARCHAR(64) NOT NULL UNIQUE,
-    driver      VARCHAR(32) NOT NULL,       -- sqlite/mysql/postgres
-    dialect     VARCHAR(32) NOT NULL,
-    role        VARCHAR(16) NOT NULL,       -- readwrite/readonly
-    dsn_enc     TEXT NOT NULL DEFAULT '',   -- 直连 DSN，加密存储
-    server_id   BIGINT NULL,                 -- 经 SSH 隧道时引用 sys_server
-    active      BOOLEAN NOT NULL DEFAULT FALSE,
-    remark      VARCHAR(500) NOT NULL DEFAULT '',
-    created_at  TIMESTAMP NOT NULL,
-    updated_at  TIMESTAMP NOT NULL
-);
-```
-
-连接优先级：
-
-1. 直连 `dsn_enc`；
-2. `server_id` + 目标 host/port 走 SSH 隧道；
-3. 未配置则回退 bootstrap 数据源。
-
-### 4.4 与 rocksys 的差异
-
-| 能力 | rocksys | emailplugin | EasyAdmin 采用 |
-|---|---|---|---|
-| 数据源存储 | dsn.json | 数据库 + 加密字段 | 数据库为主，bootstrap 用配置 |
-| 凭据 | 无统一加密 | AES-GCM | 采用 emailplugin |
-| SSH 隧道 | 无 | 有 | 采用 emailplugin |
-| 只读角色 | 无 | 有 | 采用 emailplugin |
-| 激活数据源 | 有 | 按名称选择 | 保留 active 标记 |
-| SQL 脚本方言 | 有 | 有 | 采用 `infra/db` |
-| 页面/HTTP | adminapi | httpapi | 移到 `apps/system` |
+- 命名数据源 SQL 表和运行期切换属于候选能力，不属于当前 P02/P04 已确认范围。
+- 现有 infra/db/datasource.go 是 JSON 文件仓储；不代表 sys_datasource 已建立。
+- 候选字段、关系和安全约束见 DATA_DICT.md §5.2；是否需要 sys_datasource、何时从 JSON 迁移、如何保护 dsn_enc 和 active 唯一性，必须另立设计决策。
+- 不得在 P02/P04 实施中未经确认直接创建或迁移该表。
 
 ## 5. 其他待迁移项
 
@@ -262,14 +233,14 @@ type Reader interface {
 1. `infra/credential`（已完成）。
 2. `infra/scheduler`：Plan/Def/Entry/Runner + Store 接口 + 内存 Store 测试；再接 `sys_schedule`。
 3. `apps/system/servers`：`sys_server` 表、CRUD、连接测试页面。
-4. `apps/system/datasources`：`sys_datasource` 表、连接测试、激活切换。
+4. 命名数据源目录与 SQL 仓储暂不纳入本期；保留当前 JSON 仓储，待独立设计决策。
 5. `infra/db/migrate`。
 6. `infra/db/size`。
 7. `infra/logx`、`infra/systeminfo`、`infra/storage`。
 
 ## 7. 验收
 
-- 调度：注册、到期触发、漏跑补一次、上轮未结束 skipped、重启接管、取消。
+- 调度：注册、到期触发、漏跑策略、上轮未结束 skipped、重启收口与取消；进程重启后任务恢复遵守 interrupted + 新 attempt 语义。
 - 凭据：加密往返、错误密钥、SSH 密码/私钥、known_hosts、别名解析。
 - 数据源：直连、只读拒绝写、SSH 隧道、激活切换、DSN 密文不回显。
 - Schema：三方言解析、Diff 分级、幂等建表。
