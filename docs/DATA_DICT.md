@@ -190,7 +190,9 @@
 |---|---|---|---|
 | `id` | 自增主键 | PK | 主键 |
 | `task_no` | 短字符串(64) | NOT NULL, UNIQUE | 任务编号 |
-| `parent_no` | 短字符串(64) | NULL | 父任务编号，最多两级 |
+| `parent_no` | 短字符串(64) | NULL | 业务父任务编号，最多两级 |
+| `attempt_no` | INTEGER | NOT NULL DEFAULT 1 | 同一逻辑任务的执行尝试序号 |
+| `retry_of_no` | 短字符串(64) | NULL | 本次尝试重试的前一任务编号 |
 | `kind` | 短字符串(64) | NOT NULL | 任务类型 |
 | `title` | 短字符串(255) | NOT NULL | 任务标题 |
 | `status` | 短字符串(16) | NOT NULL | 见枚举 |
@@ -216,7 +218,7 @@
 | `failed` | 失败 | 是 |
 | `cancelled` | 人工取消 | 是 |
 | `skipped` | 撞并发跳过 | 是 |
-| `interrupted` | 进程重启接管 | 是 |
+| `interrupted` | 进程退出后发现未完成并被收口 | 是 |
 
 索引：
 
@@ -228,7 +230,8 @@
 不变量：
 
 - `pending` / `running` 任务永不被清理；
-- 重启接管把遗留 `running` 置为 `interrupted`；
+- 进程启动发现遗留 `running` 时，标记 `interrupted`，不声称恢复执行现场；
+- 每次重试创建新的 `task_no`，`attempt_no` 递增，`retry_of_no` 指向前一次尝试；`parent_no` 只表示业务父子任务；
 - 终态保留期由配置决定。
 
 ### 4.2 `sys_task_log`
@@ -387,7 +390,7 @@ CREATE TABLE sys_datasource (
 
 ## 6. 文件
 
-### 5.1 `sys_file`
+### 6.1 `sys_file`
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
@@ -417,7 +420,7 @@ CREATE TABLE sys_datasource (
 
 ## 7. 迁移
 
-### 6.1 `sys_migration`
+### 7.1 `sys_migration`
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
@@ -452,7 +455,7 @@ CREATE TABLE sys_datasource (
 | `sys_schedule` | P4 | 调度 |
 | `sys_file` | P4 | 文件 |
 | `sys_server` | P4（候选，待评审） | SSH 服务器与凭据引用 |
-| `sys_datasource` | P04 候选；可在 P02/P04 评审时重划 | 加密命名数据源 |
+| `sys_datasource` | 待独立设计评审 | 加密命名数据源；当前 JSON 文件仓储不等于 SQL 系统表 |
 
 ## 9. 变更红线
 
