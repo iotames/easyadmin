@@ -33,27 +33,33 @@ webui/
 ├── embed_dev.go                # -tags dev 读磁盘
 ├── assets/
 │   ├── core/
-│   │   ├── boot.js             # 启动流程
-│   │   ├── router.js           # 路由与动态 import
+│   │   ├── boot.js             # 启动流程：meta → 初始化/登录/主布局
+│   │   ├── router.js           # 路由、动态 import、mount/unmount
 │   │   ├── layout.js           # 布局与插槽（全局区域唯一 owner）
-│   │   ├── menu.js             # 菜单渲染
-│   │   ├── api.js              # 唯一请求入口
+│   │   ├── menu.js             # 服务端菜单渲染
+│   │   ├── api.js              # 唯一请求入口（CSRF/超时/401）
 │   │   ├── notify.js           # 唯一提示入口
 │   │   ├── theme.js            # 主题切换
 │   │   ├── store.js            # 显式状态容器
 │   │   ├── perm.js             # 权限判断（UI 辅助）
 │   │   ├── format.js           # 日期/字节/数字格式化
-│   │   └── dom.js              # 安全 DOM 构造与转义
+│   │   ├── dom.js              # 转义、安全 DOM、焦点恢复、动作委托
+│   │   └── data.js             # SWR 数据供应商缓存
 │   ├── components/
 │   │   ├── page-header.js
-│   │   ├── data-table.js
+│   │   ├── data-table.js          # 分页控件内置，不单独建 pagination
 │   │   ├── form.js
 │   │   ├── filter-bar.js
 │   │   ├── modal.js
-│   │   ├── drawer.js
+│   │   ├── detail-modal.js
+│   │   ├── date-range.js
 │   │   ├── tabs.js
+│   │   ├── badge.js
 │   │   ├── empty.js
-│   │   └── pagination.js
+│   │   ├── action-panel.js
+│   │   ├── log-view.js
+│   │   ├── dsn-form.js
+│   │   └── tooltip.js
 │   ├── pages/
 │   │   ├── dashboard/
 │   │   │   └── index.js
@@ -330,6 +336,8 @@ ctx = {
   setTitle(title),
   setBreadcrumb(items),
   setActions(actions), // 页面级操作按钮
+  setDescription(text),// 页头描述
+  setRefresh(enabled), // 是否显示统一刷新按钮
   onCleanup(fn),       // 注册卸载清理
 }
 ```
@@ -500,6 +508,8 @@ createDataTable({
 
 必须支持：加载态、空态、错误态、分页、列宽控制、行操作区、批量选择（可选）。
 
+已实现 `createDataTable` 保留上述参数，并提供 `html(rows, meta)` / `mount(host)` / `render(rows, meta)` / `destroy()`；文档示例中的 `title` 与 `empty` 对象均受支持。
+
 ### 12.3 表单
 
 表单统一经 `form` 构建：
@@ -561,7 +571,7 @@ document.documentElement.dataset.testStatus = 'done'
 |---|---|
 | `cases_core.js` | 路由、菜单、权限、API 错误归一化、store |
 | `cases_comp.js` | 表格、表单、筛选、弹窗、分页 |
-| `cases_module.js` | 页面挂载/卸载、请求桩、状态变化 |
+| `cases_module.js` | 页面挂载/卸载、请求桩、状态变化（待页面建立后补充） |
 | `cases_arch.js` | 分层红线、模块清单一致性、禁止裸 fetch/硬编码菜单 |
 
 ### 14.2 浏览器实测
@@ -609,3 +619,31 @@ document.documentElement.dataset.testStatus = 'done'
 8. 禁止把业务数据塞进全局 store 当缓存。
 9. 禁止用前端隐藏代替后端权限校验。
 10. 禁止“测试全绿”代替浏览器实测。
+
+
+## 17. 已落地资产与移植偏差（2026-11-25）
+
+本轮按用户明确授权，提前移植 emailplugin/webui 的生产打磨资产；范围仅到内核、通用组件、样式和测试面，**不包含页面与 P3 验收**。
+
+已落地：
+
+- `webui/index.html`、`embed.go`（生产内嵌）、`embed_dev.go`（-tags dev 读磁盘）。
+- `assets/core/` 12 个模块；`assets/components/` 14 个组件；`assets/styles/` 4 个样式文件；`_test/` 3 层浏览器用例。
+- 浏览器测试 47 个用例全绿；Go 生产与 dev 构建、`go vet ./webui` 通过。
+
+相对参考实现的改动（契约不同，不照搬形态）：
+
+1. IIFE + `window.Rock` → ESM 命名导出，取消全局可变命名空间。
+2. hash 路由 + 前端硬编码菜单 → `history` 路径路由 + `/api/meta` 服务端菜单。
+3. `{ok,data,msg}` → `{ok,data,error,meta}`；写操作自动带 `X-CSRF-Token`；401 交回启动流程重渲染登录。
+4. 视图 `load/render/leave` → 页面 `mount(ctx)/unmount()`；新增 `ctx.setDescription`、`ctx.setRefresh`。
+5. 全局 `data-act` 注册表 → 页面通过 `bindActions` 显式绑定，保留 `ctx.onCleanup` 清理语义。
+6. 组件不再引用 `notify`：详情复制用组件内按钮反馈；提示统一由页面调用 `notify`。
+
+明确未移植：
+
+- 邮件/邮箱/同步/ERP 业务页面与状态映射；
+- 调度页专用样式（原第 22 段）；
+- 独立 `login.html`（登录改为 SPA 内渲染，沿用 `/api/meta` 的 `initialized` / `user` 分流）。
+
+偏好存储：主题使用 `easyadmin.theme`、侧栏折叠使用 `easyadmin.sidebar`，只存 UI 偏好，不含业务数据。

@@ -1,0 +1,29 @@
+﻿<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EasyAdmin</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='4' width='20' height='16' rx='2' fill='%232563eb'/%3E%3Cpath d='M3 6l9 6 9-6' stroke='%23fff' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/styles/tokens.css">
+  <link rel="stylesheet" href="/assets/styles/base.css">
+  <link rel="stylesheet" href="/assets/styles/layout.css">
+  <link rel="stylesheet" href="/assets/styles/components.css">
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem('easyadmin.theme');
+        if (theme === 'light' || theme === 'dark' || theme === 'green') {
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+      } catch (e) { /* 隐私模式下使用默认浅色 */ }
+    })();
+  </script>
+</head>
+<body>
+  <div id="app" aria-live="polite"></div>
+  <div id="toast-root"></div>
+  <div id="modal-root"></div>
+  <script type="module" src="/assets/core/boot.js"></script>
+</body>
+</html>

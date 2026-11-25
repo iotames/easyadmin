@@ -1,0 +1,41 @@
+﻿<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EasyAdmin 前端测试</title>
+  <link rel="stylesheet" href="../assets/styles/tokens.css">
+  <link rel="stylesheet" href="../assets/styles/base.css">
+  <link rel="stylesheet" href="../assets/styles/layout.css">
+  <link rel="stylesheet" href="../assets/styles/components.css">
+  <style>
+    body { padding: 24px; background: var(--bg); color: var(--text); }
+    .summary { font-weight: 600; margin-bottom: 16px; }
+    .summary-green { color: var(--ok); }
+    .summary-red { color: var(--danger); }
+    .rt { width: 100%; border-collapse: collapse; background: var(--panel); }
+    .rt th, .rt td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; font-size: 13px; }
+    .r-ok td:nth-child(3) { color: var(--ok); }
+    .r-bad td:nth-child(3) { color: var(--danger); }
+    .detail { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <h1>EasyAdmin 前端测试</h1>
+<script>
+    window.__LOAD_ERRORS__ = [];
+    function __eaErr(message) {
+      window.__LOAD_ERRORS__.push(String(message));
+      document.documentElement.setAttribute('data-load-errors', window.__LOAD_ERRORS__.join(' | '));
+    }
+    window.addEventListener('error', function (event) { __eaErr(event.message || event.error); });
+    window.addEventListener('unhandledrejection', function (event) { __eaErr(event.reason); });
+  </script>
+    <div id="results">运行中…</div>
+  <div id="toast-root"></div>
+  <div id="modal-root"></div>
+  <script type="module" src="./cases_core.js"></script>
+  <script type="module" src="./cases_comp.js"></script>
+  <script type="module" src="./cases_arch.js"></script>
+</body>
+</html>

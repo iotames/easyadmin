@@ -1,0 +1,36 @@
+/* EasyAdmin 基础重置与排版 */
+* { box-sizing: border-box; }
+
+/* 尊重系统「减少动态效果」：动画只是增强，关掉后弹层与提示仍保持终态可见 */
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay, .modal, .toast, .sk-line, #rock-api-loading .rock-loading-bar { animation: none !important; transition: none !important; }
+}
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-main);
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 5px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+
+.hidden { display: none !important; }
+.muted { color: var(--text-2); }
+.mono { font-family: var(--font-mono); }
+.text-danger { color: var(--danger) !important; }
+.text-warn { color: var(--warn) !important; }
+.text-ok { color: var(--ok) !important; }
+b, strong { font-weight: 600; }
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+#app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+

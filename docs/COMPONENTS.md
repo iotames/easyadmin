@@ -211,22 +211,47 @@
 
 ## 5. 前端组件清单
 
-| 组件 | 职责 | 依赖 | 期次 |
+状态：**已落地**（2026-11-25，用户授权提前移植 `D:\projects\emailplugin\webui`）。逐文件映射与证据见 [WEBUI_ASSET_REVIEW.md](WEBUI_ASSET_REVIEW.md)。
+
+### 5.1 前端内核
+
+| 模块 | 职责 | 文件 |
+|---|---|---|
+| `api` | 唯一请求入口：CSRF、超时、401、错误归一化、分页归一化 | `webui/assets/core/api.js` |
+| `boot` | 启动流程：meta → 初始化/登录/主布局 | `webui/assets/core/boot.js` |
+| `router` | 路径匹配、动态 import、mount/unmount、Page ID 登记 | `webui/assets/core/router.js` |
+| `layout` | 顶栏/侧栏/内容区唯一 owner | `webui/assets/core/layout.js` |
+| `menu` | 服务端菜单渲染、展开、激活 | `webui/assets/core/menu.js` |
+| `notify` | 唯一提示入口 | `webui/assets/core/notify.js` |
+| `store` | 显式低频状态容器 | `webui/assets/core/store.js` |
+| `perm` | 按钮级权限辅助 | `webui/assets/core/perm.js` |
+| `theme` | 三主题切换与持久化 | `webui/assets/core/theme.js` |
+| `dom` | 转义、安全 DOM、焦点恢复、动作委托 | `webui/assets/core/dom.js` |
+| `format` | 日期/字节/数字/时长格式化 | `webui/assets/core/format.js` |
+| `data` | SWR + 单飞 + TTL 数据供应商缓存 | `webui/assets/core/data.js` |
+
+### 5.2 通用组件
+
+| 组件 | 职责 | 依赖 | 状态 |
 |---|---|---|---|
-| `layout` | 顶栏、侧栏、面包屑、内容区、页脚 | core | P3 |
-| `menu` | 服务端菜单渲染、展开、激活态 | layout | P3 |
-| `router` | 路径匹配、动态 import、404 | core | P3 |
-| `api` | 统一请求、错误归一化、超时 | core | P3 |
-| `notify` | success/info/warn/error 统一提示 | core | P3 |
-| `modal` / `drawer` | 弹窗与抽屉 | core | P3 |
-| `data-table` | 列定义、排序、选择、分页、空态 | core | P3 |
-| `form` | 输入、选择、开关、校验、布局 | core | P3 |
-| `filter-bar` | 查询条件组合与重置 | form | P3 |
-| `tabs` | 页内标签 | core | P3 |
-| `empty` | 空态与引导 | core | P3 |
-| `page-header` | 标题、描述、页面级操作 | core | P3 |
-| `code-editor` | SQL/脚本编辑 | 按需加载 | P4 |
-| `chart` | 图表 | 按需加载 | P4 |
+| `page-header` | 标题、描述、页面级操作、全站唯一刷新按钮 | dom | 已落地 |
+| `data-table` | 列声明、客户端/服务端分页、多选、行详情 | dom/format/empty/detail-modal | 已落地 |
+| `form` | 输入/选择/开关/单选/复选/字段错误映射 | dom | 已落地 |
+| `filter-bar` | 声明式筛选、live 查询、中文输入法安全、焦点恢复 | dom/date-range | 已落地 |
+| `modal` | 弹窗、二次确认、ESC 栈 | dom | 已落地 |
+| `detail-modal` | 键值详情、长文本、复制 | dom/modal | 已落地 |
+| `date-range` | 四输入 → RFC3339，严格日期校验 | 无 | 已落地 |
+| `tabs` / `badge` / `empty` | 页签 / 语义标签 / 空态 | dom | 已落地 |
+| `action-panel` | 维护动作卡 | dom | 已落地 |
+| `log-view` | 任务日志分级视图 | dom/format | 已落地 |
+| `dsn-form` | 命名数据源表单（驱动/直连/SSH/DSN） | form | 已落地 |
+| `tooltip` | `[data-tip]` 全局跟随提示 | dom | 已落地 |
+
+### 5.3 明确未落地
+
+- `drawer`：参考实现未提供，等真实页面出现抽屉需求再设计，不预造。
+- `code-editor` / `chart`：按 P4 需求动态加载，不在首屏引入。
+- 业务页面：邮件、邮箱、同步、ERP 等不得进入框架。
 
 组件红线：
 

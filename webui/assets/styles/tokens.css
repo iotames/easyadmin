@@ -1,0 +1,116 @@
+/* EasyAdmin 设计令牌与主题 */
+/* ---------- 1. 主题变量与基础 ---------- */
+:root {
+  --bg: #f4f6f9;
+  --bg-2: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f7f9fc;
+  --border: #dfe3e8;
+  --border-strong: #c9d1da;
+  --text: #1f2933;
+  --text-2: #6b7785;
+  --primary: #1f6feb;
+  --primary-hover: #1a5fd0;
+  --primary-soft: rgba(31, 111, 235, .10);
+  --ok: #1a7f37;
+  --ok-soft: rgba(26, 127, 55, .10);
+  --warn: #9a6700;
+  --warn-soft: rgba(154, 103, 0, .10);
+  --danger: #b42318;
+  --danger-soft: rgba(180, 35, 24, .10);
+  --text-btn-hover: #1a5fd0;
+  --hover-bg: rgba(15, 23, 42, .04);
+  --placeholder: #98a2b3;
+  --focus-ring: rgba(31, 111, 235, .18);
+  --row-stripe: rgba(15, 23, 42, .015);
+  --row-hover: rgba(31, 111, 235, .06);
+  --row-error: rgba(180, 35, 24, .06);
+  --switch-off: #d7dde5;
+  --switch-knob: #ffffff;
+  --overlay: rgba(15, 23, 42, .42);
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, .06);
+  --shadow: 0 6px 18px rgba(15, 23, 42, .10);
+  --shadow-lg: 0 16px 48px rgba(15, 23, 42, .16);
+  --skeleton-a: #e7ebf1;
+  --skeleton-b: #f3f6fa;
+  --scroll-thumb: #c9d1da;
+  --scroll-thumb-hover: #9aa5b1;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font-main: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, Menlo, "Courier New", monospace;
+}
+
+html[data-theme="dark"] {
+  --bg: #0f1520;
+  --bg-2: #151d2a;
+  --panel: #151d2a;
+  --panel-2: #1b2534;
+  --border: #25303f;
+  --border-strong: #334054;
+  --text: #e4e9f0;
+  --text-2: #93a1b3;
+  --primary: #4c8dff;
+  --primary-hover: #6ba0ff;
+  --primary-soft: rgba(76, 141, 255, .14);
+  --ok: #3fb950;
+  --ok-soft: rgba(63, 185, 80, .14);
+  --warn: #d29922;
+  --warn-soft: rgba(210, 153, 34, .14);
+  --danger: #f85149;
+  --danger-soft: rgba(248, 81, 73, .14);
+  --text-btn-hover: #8bb6ff;
+  --hover-bg: rgba(255, 255, 255, .05);
+  --placeholder: #6e7b8b;
+  --focus-ring: rgba(76, 141, 255, .22);
+  --row-stripe: rgba(255, 255, 255, .02);
+  --row-hover: rgba(76, 141, 255, .10);
+  --row-error: rgba(248, 81, 73, .10);
+  --switch-off: #3a4453;
+  --switch-knob: #cfd8e3;
+  --overlay: rgba(2, 6, 12, .66);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .32);
+  --shadow: 0 6px 18px rgba(0, 0, 0, .38);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, .55);
+  --skeleton-a: #1b2534;
+  --skeleton-b: #22303f;
+  --scroll-thumb: #334054;
+  --scroll-thumb-hover: #4a5b70;
+}
+
+html[data-theme="green"] {
+  --bg: #cfe8d4;
+  --bg-2: #e3f2e5;
+  --panel: #e3f2e5;
+  --panel-2: #d6ead9;
+  --border: #a6c8ab;
+  --border-strong: #8fb894;
+  --text: #2f4f3a;
+  --text-2: #5f7a66;
+  --primary: #2f7d4a;
+  --primary-hover: #256a3d;
+  --primary-soft: rgba(47, 125, 74, .12);
+  --ok: #2e8b57;
+  --ok-soft: rgba(46, 139, 87, .12);
+  --warn: #9a6700;
+  --warn-soft: rgba(154, 103, 0, .12);
+  --danger: #b42318;
+  --danger-soft: rgba(180, 35, 24, .10);
+  --text-btn-hover: #256a3d;
+  --hover-bg: rgba(0, 0, 0, .05);
+  --placeholder: #7d9a82;
+  --focus-ring: rgba(47, 125, 74, .2);
+  --row-stripe: rgba(0, 0, 0, .025);
+  --row-hover: rgba(47, 125, 74, .08);
+  --row-error: rgba(180, 35, 24, .07);
+  --switch-off: #a8c9ad;
+  --switch-knob: #ffffff;
+  --overlay: rgba(0, 0, 0, .38);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .07);
+  --shadow: 0 6px 18px rgba(0, 0, 0, .10);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, .16);
+  --skeleton-a: #bcd9c1;
+  --skeleton-b: #d3e8d6;
+  --scroll-thumb: #a6c8ab;
+  --scroll-thumb-hover: #88ae8e;
+}

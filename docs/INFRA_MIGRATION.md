@@ -45,3 +45,16 @@ go vet ./infra/...
 ~~~
 
 infra/tasks 和 infra/scheduler 当前仍为内存态；持久化能力归 P04 设计/实施，不得把“核心源码已迁移”写作“任务中心已经持久化”。
+
+
+## 4. WebUI 通用资产（emailplugin/webui）
+
+状态：**已落地**（2026-11-25，用户授权提前移植）。只迁移框架级内核、组件、样式和测试面，业务页面不进入框架。证据见 [WEBUI_ASSET_REVIEW.md](WEBUI_ASSET_REVIEW.md)。
+
+| 目标 | 来源 | 迁移内容 | 未迁移 / 待办 |
+|---|---|---|---|
+| `webui/assets/core` | emailplugin `assets/js/{api,ui,theme,data,state,nav,main,util}.js` | 请求、提示、主题、SWR 缓存、菜单、路由、布局、状态、格式化、DOM 安全与焦点恢复 | 业务状态映射；hash 路由改路径路由；全局 `Rock` 改 ESM |
+| `webui/assets/components` | emailplugin `assets/js/components/*.js` | 表格、表单、筛选、弹窗、详情、时间范围、页签、标签、空态、动作卡、日志、DSN、tooltip | drawer 未实现；组件不得引用 api/notify |
+| `webui/assets/styles` | emailplugin `assets/style.css` | 设计令牌、三套主题、布局、组件样式 | 调度页专用样式；业务页面样式 |
+| `webui/_test` | emailplugin `_test/*` | 零依赖 runner、core/component/architecture 用例 | module 层用例待页面建立后补 |
+| `webui/embed*.go` | emailplugin `embed*.go` | 生产 go:embed 与 dev 磁盘双模式 | 静态服务与鉴权白名单归 `infra/httpapi` |

@@ -39,14 +39,14 @@ easyadmin/
 │   └── profile/                   # 个人中心域
 ├── webui/
 │   ├── index.html
-│   ├── embed.go
-│   ├── embed_dev.go
+│   ├── embed.go                    # 生产：go:embed index.html + assets
+│   ├── embed_dev.go                # -tags dev：os.DirFS 读磁盘
 │   ├── assets/
-│   │   ├── core/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   └── styles/
-│   └── _test/
+│   │   ├── core/                   # boot/router/layout/menu/api/notify/theme/store/perm/format/dom/data
+│   │   ├── components/             # 表格/表单/筛选/弹窗/页头/空态/标签/日志/DSN/tooltip
+│   │   ├── pages/                  # 页面入口（P3 起填充，当前为空）
+│   │   └── styles/                 # tokens/base/layout/components
+│   └── _test/                      # 浏览器测试面（仅 dev 构建可访问）
 ├── sql/
 │   ├── sqlite/
 │   ├── mysql/
@@ -121,4 +121,4 @@ apps/system/users/
 - `infra/tasks/`（当前为纯内存任务中心）
 - `infra/scheduler/`（当前有 Store 接口和 `MemoryStore`，数据库 Store 未实现）
 
-当前尚不存在的目标目录包括 `cmd/`、`kernel/`、`apps/`、`webui/`、`sql/`。目标树是规划，不得作为当前实现清单引用。
+当前尚不存在的目标目录包括 `cmd/`、`kernel/`、`apps/`、`sql/`。`webui/` 已落地基础资产（core/components/styles/_test），`assets/pages/` 目录已建但尚无页面；前端页面与 P3 验收仍未完成。
