@@ -2,7 +2,7 @@
 
 > 以自研 `easyconf`、`easydb`、`easyserver` 为地基的 Go 中后台框架。把 Web 业务之外的基础设施收敛为一套透明、可组合、可独立演进的公共底座，让业务项目主要关注领域模型、业务规则和业务页面。
 
-当前状态：**P00 地基已实施并通过验收（2026-11-26）；P01 尚未启动**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码，其中任务中心和调度 Store 当前为内存实现；`cmd/easyadmin` 组合根与 `kernel` 最小 App 生命周期已建立；`apps/`、`sql/` 尚未建立。`webui/` 已按用户授权提前落地前端内核、通用组件、样式令牌和浏览器测试面（见 `docs/WEBUI_ASSET_REVIEW.md`），页面与 P3 验收尚未完成。P00 已在当前基线执行 `go build ./...`、`go vet ./...`、`go test ./...`、`go test -race ./...` 并通过，证据见 `docs/plan/P00_FOUNDATION_DESIGN_PLAN.md` 的验收结论。
+当前状态：**P00 地基已实施并通过验收（2026-11-26）；P01 尚未启动**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码，其中任务中心和调度 Store 当前为内存实现；`cmd/easyadmin` 组合根与 `kernel` 最小 App 生命周期已建立；`apps/`、`sql/` 尚未建立。`webui/` 已按用户授权提前落地前端内核、通用组件、样式令牌和浏览器测试面（见 `docs/WEBUI_ASSET_REVIEW.md`），页面与 P3 验收尚未完成。P00 已在当前基线执行 `go build ./...`、`go vet ./...`、`go test ./...`、`go test -race ./...` 并通过，证据见 `docs/done/P00_FOUNDATION_DESIGN_PLAN.md` 的验收结论。
 
 已确认：**API 统一使用 `/api/` 前缀，不设路径版本号，接口从首个公开版本起向下兼容，只增不改。**
 
@@ -88,7 +88,7 @@ lib/easyconf、lib/easydb、lib/easyserver 是独立地基库；不反向依赖 
 | P5 | CLI 与模块生态 | 项目模板、模块生成、Provider/Adapter、示例 | v0.5 |
 | P6 | 稳定与正式发行 | 安全、性能、兼容、升级、发布与真实项目验证 | v1.0 |
 
-每期严格配对：`<项目>_DESIGN_PLAN.md` 负责设计与验收边界，`<项目>_IMPL_PLAN.md` 负责文件级实施步骤、测试、风险和回退；两份文件位于 `docs/plan/` 根部，执行期 `STEPn_*.md` 放同名项目子目录。七期共 14 份计划文件，见 [docs/plan/README.md](docs/plan/README.md)。
+每期严格配对：`<项目>_DESIGN_PLAN.md` 负责设计与验收边界，`<项目>_IMPL_PLAN.md` 负责文件级实施步骤、测试、风险和回退；两份文件位于 `docs/plan/` 根部，执行期 `STEPn_*.md` 放同名项目子目录。P00 已完成并归档到 `docs/done/`，计划目录当前 6 对 12 份，见 [docs/plan/README.md](docs/plan/README.md)。
 
 ## 7. 文档索引
 
