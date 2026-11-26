@@ -200,6 +200,43 @@ func TestCatalogRejectsDuplicate(t *testing.T) {
 	}
 }
 
+func TestMenuOrderByOrder(t *testing.T) {
+	cat := NewCatalog()
+	pages := []Page{
+		{ID: "profile", Title: "个人资料", Path: "/profile", Order: 99},
+		{ID: "system.users", Title: "用户管理", Path: "/system/users", Menu: "系统", Order: 10, Perm: "system.user.read"},
+		{ID: "system.config", Title: "配置中心", Path: "/system/config", Menu: "系统", Order: 40, Perm: "system.config.read"},
+		{ID: "dashboard", Title: "仪表盘", Path: "/", Order: 0, Perm: "console.read"},
+		{ID: "system.roles", Title: "角色管理", Path: "/system/roles", Menu: "系统", Order: 20, Perm: "system.role.read"},
+		{ID: "system.audit", Title: "审计日志", Path: "/system/audit", Menu: "系统", Order: 30, Perm: "system.audit.read"},
+	}
+	for _, p := range pages {
+		if err := cat.AddPage(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	menus := cat.MenusFor([]string{"*"})
+	if len(menus) != 3 {
+		t.Fatalf("顶层菜单数量 = %d: %+v", len(menus), menus)
+	}
+	if menus[0].Key != "dashboard" || menus[1].Key != "系统" || menus[2].Key != "profile" {
+		t.Fatalf("顶层顺序错误: %s, %s, %s", menus[0].Key, menus[1].Key, menus[2].Key)
+	}
+	got := make([]string, 0, len(menus[1].Children))
+	for _, child := range menus[1].Children {
+		got = append(got, child.Key)
+	}
+	want := []string{"system.users", "system.roles", "system.audit", "system.config"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("分组内顺序 = %v，期望 %v", got, want)
+	}
+
+	filtered := cat.MenusFor([]string{"console.read", "system.user.read"})
+	if len(filtered) != 3 || filtered[1].Key != "系统" || len(filtered[1].Children) != 1 {
+		t.Fatalf("权限过滤后菜单错误: %+v", filtered)
+	}
+}
+
 func TestDecodeJSONAndValidate(t *testing.T) {
 	type payload struct {
 		Name string `json:"name"`

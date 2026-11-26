@@ -90,6 +90,7 @@ func run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("装配应用: %w", err)
 	}
+	sysModule.SetManifestSource(runtime)
 	if err := runtime.Declare(manager); err != nil {
 		return fmt.Errorf("声明模块配置: %w", err)
 	}
@@ -109,23 +110,6 @@ func run(args []string) error {
 		_ = listener.Close()
 		return fmt.Errorf("启动应用: %w", err)
 	}
-	var permissionCodes []string
-	for _, m := range modules {
-		for _, p := range m.Manifest().Permissions {
-			permissionCodes = append(permissionCodes, p.Code)
-			if err := sysModule.RegisterPermission(ctx, p.Code, p.Name); err != nil {
-				_ = listener.Close()
-				_ = runtime.Stop(context.Background())
-				return fmt.Errorf("同步权限 %s: %w", p.Code, err)
-			}
-		}
-	}
-	if err := sysModule.MarkOrphanedPermissions(ctx, permissionCodes); err != nil {
-		_ = listener.Close()
-		_ = runtime.Stop(context.Background())
-		return fmt.Errorf("标记下线权限: %w", err)
-	}
-
 	server := &http.Server{
 		Handler: httpapi.NewHandler(httpapi.HandlerOptions{
 			Info:      httpapi.AppInfo{Name: runtime.Name(), Version: runtime.Version()},

@@ -117,30 +117,69 @@ func allowed(perms []string, required string) bool {
 }
 
 func buildMenus(pages []Page, perms []string, filter bool) []MenuNode {
-	groups := map[string][]Page{}
+	type group struct {
+		name  string
+		order int
+		pages []Page
+	}
+	groups := map[string]*group{}
 	var groupOrder []string
-	var leaves []MenuNode
+	var leaves []Page
 	for _, p := range pages {
 		if filter && !allowed(perms, p.Perm) {
 			continue
 		}
 		if p.Menu == "" {
-			leaves = append(leaves, MenuNode{Key: p.ID, Title: p.Title, Path: p.Path})
+			leaves = append(leaves, p)
 			continue
 		}
-		if _, ok := groups[p.Menu]; !ok {
+		g, ok := groups[p.Menu]
+		if !ok {
+			g = &group{name: p.Menu, order: p.Order}
+			groups[p.Menu] = g
 			groupOrder = append(groupOrder, p.Menu)
+		} else if p.Order < g.order {
+			g.order = p.Order
 		}
-		groups[p.Menu] = append(groups[p.Menu], p)
+		g.pages = append(g.pages, p)
 	}
-	out := make([]MenuNode, 0, len(groupOrder)+len(leaves))
+
+	type entry struct {
+		order int
+		key   string
+		node  MenuNode
+	}
+	entries := make([]entry, 0, len(groupOrder)+len(leaves))
 	for _, name := range groupOrder {
-		node := MenuNode{Key: name, Title: name}
-		for _, p := range groups[name] {
+		g := groups[name]
+		sort.SliceStable(g.pages, func(i, j int) bool {
+			if g.pages[i].Order != g.pages[j].Order {
+				return g.pages[i].Order < g.pages[j].Order
+			}
+			return g.pages[i].ID < g.pages[j].ID
+		})
+		node := MenuNode{Key: g.name, Title: g.name}
+		for _, p := range g.pages {
 			node.Children = append(node.Children, MenuNode{Key: p.ID, Title: p.Title, Path: p.Path})
 		}
-		out = append(out, node)
+		entries = append(entries, entry{order: g.order, key: g.name, node: node})
 	}
-	out = append(out, leaves...)
+	for _, p := range leaves {
+		entries = append(entries, entry{
+			order: p.Order,
+			key:   p.ID,
+			node:  MenuNode{Key: p.ID, Title: p.Title, Path: p.Path},
+		})
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		if entries[i].order != entries[j].order {
+			return entries[i].order < entries[j].order
+		}
+		return entries[i].key < entries[j].key
+	})
+	out := make([]MenuNode, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, e.node)
+	}
 	return out
 }

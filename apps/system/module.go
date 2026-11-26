@@ -9,26 +9,29 @@ import (
 	"github.com/iotames/easyadmin/kernel/module"
 )
 
-// permDef 是内置权限定义。
-type permDef struct {
-	Code string
-	Name string
+// permissionDefs 是内置权限定义，也是 Manifest 的唯一声明源。
+func permissionDefs() []module.PermissionMeta {
+	return []module.PermissionMeta{
+		{Code: "system.user.read", Name: "查看用户"},
+		{Code: "system.user.write", Name: "管理用户"},
+		{Code: "system.role.read", Name: "查看角色"},
+		{Code: "system.role.write", Name: "管理角色"},
+		{Code: "system.audit.read", Name: "查看审计"},
+		{Code: "system.config.read", Name: "查看配置"},
+	}
 }
 
-func permissionDefs() []permDef {
-	return []permDef{
-		{"system.user.read", "查看用户"},
-		{"system.user.write", "管理用户"},
-		{"system.role.read", "查看角色"},
-		{"system.role.write", "管理角色"},
-		{"system.audit.read", "查看审计"},
-	}
+// ManifestSource 汇总全部启用模块的 Manifest，由组合根在 Start 前注入。
+// 权限同步统一由 system 模块执行，组合根不再逐个模块遍历。
+type ManifestSource interface {
+	Manifests() []module.Manifest
 }
 
 // Module 是内置系统模块：用户、角色、权限、会话与审计。
 type Module struct {
-	sys           *System
-	adminPassword *string
+	sys            *System
+	adminPassword  *string
+	manifestSource ManifestSource
 }
 
 // New 创建系统模块。catalog 用于按权限过滤菜单。
@@ -43,12 +46,11 @@ func New(d *db.DB, catalog *httpapi.Catalog) *Module {
 	return m
 }
 
+// SetManifestSource 注入全部模块 Manifest 来源；须在 Start 前调用。
+func (m *Module) SetManifestSource(src ManifestSource) { m.manifestSource = src }
+
 // Manifest 声明系统页面与权限。
 func (Module) Manifest() module.Manifest {
-	perms := make([]module.PermissionMeta, 0, len(permissionDefs()))
-	for _, p := range permissionDefs() {
-		perms = append(perms, module.PermissionMeta{Code: p.Code, Name: p.Name})
-	}
 	return module.Manifest{
 		ID:          "system",
 		Version:     "0.1.0",
@@ -57,8 +59,9 @@ func (Module) Manifest() module.Manifest {
 			{ID: "system.users", Title: "用户管理", Path: "/system/users", Menu: "系统", Order: 10, Perm: "system.user.read"},
 			{ID: "system.roles", Title: "角色管理", Path: "/system/roles", Menu: "系统", Order: 20, Perm: "system.role.read"},
 			{ID: "system.audit", Title: "审计日志", Path: "/system/audit", Menu: "系统", Order: 30, Perm: "system.audit.read"},
+			{ID: "system.config", Title: "配置中心", Path: "/system/config", Menu: "系统", Order: 40, Perm: "system.config.read"},
 		},
-		Permissions: perms,
+		Permissions: permissionDefs(),
 	}
 }
 
@@ -72,8 +75,45 @@ func (m *Module) Declare(reg module.ConfigRegistrar) error {
 // Register 登记认证与系统 API 路由。
 func (m *Module) Register(reg module.Registrar) error { return m.sys.registerRoutes(reg) }
 
-// Start 幂等准备系统角色与权限码，不执行 DDL。
-func (m *Module) Start(ctx context.Context) error { return m.sys.Bootstrap(ctx) }
+// Start 幂等准备系统角色，并统一同步全部模块 Manifest 权限，不执行 DDL。
+func (m *Module) Start(ctx context.Context) error {
+	if err := m.sys.Bootstrap(ctx); err != nil {
+		return err
+	}
+	return m.syncManifestPermissions(ctx)
+}
+
+// manifestPermissions 返回全部启用模块声明的权限；未注入来源时退回本模块 Manifest。
+func (m *Module) manifestPermissions() []module.PermissionMeta {
+	if m.manifestSource == nil {
+		return m.Manifest().Permissions
+	}
+	seen := map[string]bool{}
+	out := make([]module.PermissionMeta, 0)
+	for _, mf := range m.manifestSource.Manifests() {
+		for _, p := range mf.Permissions {
+			if p.Code == "" || seen[p.Code] {
+				continue
+			}
+			seen[p.Code] = true
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// syncManifestPermissions 幂等写入全部权限码，并把不再声明的权限标记为 orphaned。
+func (m *Module) syncManifestPermissions(ctx context.Context) error {
+	perms := m.manifestPermissions()
+	codes := make([]string, 0, len(perms))
+	for _, p := range perms {
+		codes = append(codes, p.Code)
+		if err := m.sys.RegisterPermission(ctx, p.Code, p.Name); err != nil {
+			return err
+		}
+	}
+	return m.sys.MarkOrphanedPermissions(ctx, codes)
+}
 
 // Stop 无后台资源。
 func (m *Module) Stop(context.Context) error { return nil }
@@ -88,7 +128,7 @@ func (m *Module) MarkOrphanedPermissions(ctx context.Context, codes []string) er
 	return m.sys.MarkOrphanedPermissions(ctx, codes)
 }
 
-// RegisterPermission 幂等同步权限码（供组合根同步全部模块 Manifest）。
+// RegisterPermission 幂等同步单个权限码。
 func (m *Module) RegisterPermission(ctx context.Context, code, name string) error {
 	return m.sys.RegisterPermission(ctx, code, name)
 }

@@ -393,6 +393,41 @@ func TestOrphanedPermissionMarked(t *testing.T) {
 	}
 }
 
+type fakeManifests []module.Manifest
+
+func (f fakeManifests) Manifests() []module.Manifest { return f }
+
+func TestManifestPermissionsSyncedByModule(t *testing.T) {
+	d := openTestDB(t)
+	cat := httpapi.NewCatalog()
+	m := New(d, cat)
+	m.SetManifestSource(fakeManifests{
+		{ID: "console", Permissions: []module.PermissionMeta{{Code: "console.read", Name: "查看仪表盘"}}},
+		m.Manifest(),
+	})
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	ps, err := m.sys.store.ListPermissions(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	active := map[string]bool{}
+	for _, p := range ps {
+		if p.Status == "active" {
+			active[p.Code] = true
+		}
+	}
+	for _, code := range []string{"console.read", "system.user.read", "system.config.read", "system.audit.read"} {
+		if !active[code] {
+			t.Fatalf("权限 %s 未同步，现有 %v", code, active)
+		}
+	}
+	if _, ok := active["system.config.write"]; ok {
+		t.Fatal("P03 不应声明 system.config.write")
+	}
+}
+
 func TestNonSuperCannotEscalate(t *testing.T) {
 	sys, _ := newSystem(t)
 	ctx := context.Background()

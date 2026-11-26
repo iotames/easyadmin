@@ -146,6 +146,16 @@ func (a *App) ModuleIDs() []string {
 	return ids
 }
 
+// Manifests 返回按拓扑序排列的启用模块 Manifest 快照。
+// 供需要汇总全部模块声明（页面、权限）的基础设施使用，避免调用方自行遍历模块列表。
+func (a *App) Manifests() []module.Manifest {
+	out := make([]module.Manifest, 0, len(a.modules))
+	for _, m := range a.modules {
+		out = append(out, m.Manifest())
+	}
+	return out
+}
+
 // Declare 按拓扑序对所有启用模块声明配置元数据。
 func (a *App) Declare(reg module.ConfigRegistrar) error {
 	for _, m := range a.modules {

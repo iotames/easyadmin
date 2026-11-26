@@ -1,4 +1,4 @@
-// Package console 是 P01 的最小内置模块：只登记页面/权限元信息与一条示例路由，
+// Package console 是内置控制台模块：登记仪表盘页面、权限元信息与示例路由，
 // 用于验证 Manifest 元信息进入 /api/meta、禁用模块不登记资源，以及路由冲突检测。
 package console
 
@@ -22,10 +22,10 @@ func (Module) Manifest() module.Manifest {
 		Version:     "0.1.0",
 		Description: "控制台与运行状态示例模块",
 		Pages: []module.PageMeta{
-			{ID: "console.home", Title: "控制台", Path: "/console", Order: 0, Perm: "console.read"},
+			{ID: "dashboard", Title: "仪表盘", Path: "/", Order: 0, Perm: "console.read"},
 		},
 		Permissions: []module.PermissionMeta{
-			{Code: "console.read", Name: "查看控制台"},
+			{Code: "console.read", Name: "查看仪表盘"},
 		},
 	}
 }
