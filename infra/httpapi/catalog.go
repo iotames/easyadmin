@@ -85,19 +85,45 @@ func (c *Catalog) PermissionCodes() []string {
 	return out
 }
 
-// Menus 由带 Menu 的页面聚合菜单树；无 Menu 的页面为顶层叶子。
-func (c *Catalog) Menus() []MenuNode {
+// pagesSnapshot 返回按登记顺序的页面快照。
+func (c *Catalog) pagesSnapshot() []Page {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	pages := make([]Page, 0, len(c.pageSeq))
 	for _, id := range c.pageSeq {
 		pages = append(pages, c.pages[id])
 	}
-	c.mu.Unlock()
+	return pages
+}
 
+// Menus 返回全部页面聚合的菜单树（供未启用认证的默认 meta 使用）。
+func (c *Catalog) Menus() []MenuNode { return buildMenus(c.pagesSnapshot(), nil, false) }
+
+// MenusFor 返回按权限过滤后的菜单树；perms 含 "*" 时全量可见。
+func (c *Catalog) MenusFor(perms []string) []MenuNode {
+	return buildMenus(c.pagesSnapshot(), perms, true)
+}
+
+func allowed(perms []string, required string) bool {
+	if required == "" {
+		return true
+	}
+	for _, p := range perms {
+		if p == "*" || p == required {
+			return true
+		}
+	}
+	return false
+}
+
+func buildMenus(pages []Page, perms []string, filter bool) []MenuNode {
 	groups := map[string][]Page{}
 	var groupOrder []string
 	var leaves []MenuNode
 	for _, p := range pages {
+		if filter && !allowed(perms, p.Perm) {
+			continue
+		}
 		if p.Menu == "" {
 			leaves = append(leaves, MenuNode{Key: p.ID, Title: p.Title, Path: p.Path})
 			continue

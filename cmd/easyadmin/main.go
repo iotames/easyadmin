@@ -10,11 +10,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
+	_ "modernc.org/sqlite"
+
 	"github.com/iotames/easyadmin/apps/console"
+	"github.com/iotames/easyadmin/apps/system"
 	"github.com/iotames/easyadmin/infra/conf"
+	"github.com/iotames/easyadmin/infra/db"
 	"github.com/iotames/easyadmin/infra/httpapi"
 	"github.com/iotames/easyadmin/infra/logx"
 	kernelapp "github.com/iotames/easyadmin/kernel/app"
@@ -22,13 +28,33 @@ import (
 	"github.com/iotames/easyadmin/webui"
 )
 
-// version 在 P01 为开发标识；正式构建信息在发行阶段接入。
-const version = "0.1.0-p01"
+// version 在 P02 为开发标识；正式构建信息在发行阶段接入。
+const version = "0.1.0-p02"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		log.Fatalf("easyadmin 退出: %v", err)
 	}
+}
+
+func sqliteDSN(cfg *conf.Config) (string, error) {
+	dsn := cfg.DBDSN
+	if dsn == "" {
+		return "", errors.New("EASYADMIN_DB_DSN 为空")
+	}
+	path := dsn
+	if i := strings.IndexByte(path, '?'); i >= 0 {
+		path = path[:i]
+	}
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return "", fmt.Errorf("创建数据目录 %s: %w", dir, err)
+		}
+	}
+	if strings.Contains(dsn, "?") {
+		return dsn + "&_pragma=foreign_keys(1)", nil
+	}
+	return dsn + "?_pragma=foreign_keys(1)", nil
 }
 
 func run(args []string) error {
@@ -39,14 +65,28 @@ func run(args []string) error {
 	cfg := manager.Current()
 	logger := logx.New(cfg.LogLevel)
 
+	dsn := cfg.DBDSN
+	if cfg.DBDriver == "sqlite" {
+		dsn, err = sqliteDSN(cfg)
+		if err != nil {
+			return fmt.Errorf("初始化 SQLite DSN: %w", err)
+		}
+	}
+	database, err := db.Open(cfg.DBDriver, dsn, system.CoreSource())
+	if err != nil {
+		return fmt.Errorf("打开数据库: %w", err)
+	}
+	defer database.Close()
+	if err := system.EnsureSchema(database); err != nil {
+		return fmt.Errorf("同步核心结构: %w", err)
+	}
+
 	router := httpapi.NewRouter()
 	catalog := httpapi.NewCatalog()
+	sysModule := system.New(database, catalog)
+	modules := []module.Module{console.New(), sysModule}
 
-	runtime, err := kernelapp.New(kernelapp.Options{
-		Name:    "easyadmin",
-		Version: version,
-		Modules: []module.Module{console.New()},
-	})
+	runtime, err := kernelapp.New(kernelapp.Options{Name: "easyadmin", Version: version, Modules: modules})
 	if err != nil {
 		return fmt.Errorf("装配应用: %w", err)
 	}
@@ -69,6 +109,22 @@ func run(args []string) error {
 		_ = listener.Close()
 		return fmt.Errorf("启动应用: %w", err)
 	}
+	var permissionCodes []string
+	for _, m := range modules {
+		for _, p := range m.Manifest().Permissions {
+			permissionCodes = append(permissionCodes, p.Code)
+			if err := sysModule.RegisterPermission(ctx, p.Code, p.Name); err != nil {
+				_ = listener.Close()
+				_ = runtime.Stop(context.Background())
+				return fmt.Errorf("同步权限 %s: %w", p.Code, err)
+			}
+		}
+	}
+	if err := sysModule.MarkOrphanedPermissions(ctx, permissionCodes); err != nil {
+		_ = listener.Close()
+		_ = runtime.Stop(context.Background())
+		return fmt.Errorf("标记下线权限: %w", err)
+	}
 
 	server := &http.Server{
 		Handler: httpapi.NewHandler(httpapi.HandlerOptions{
@@ -78,7 +134,8 @@ func run(args []string) error {
 			Logger:    logger,
 			Router:    router,
 			Catalog:   catalog,
-			Features:  map[string]bool{"auth": false},
+			Features:  map[string]bool{"auth": true},
+			Meta:      sysModule,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

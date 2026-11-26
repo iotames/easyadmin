@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS sys_session (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES sys_user(id) ON DELETE CASCADE,
+  ip TEXT NOT NULL DEFAULT '',
+  user_agent TEXT NOT NULL DEFAULT '',
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL,
+  last_seen_at DATETIME NOT NULL
+);

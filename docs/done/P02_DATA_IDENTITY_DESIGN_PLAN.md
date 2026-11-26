@@ -1,6 +1,6 @@
 # P02 设计计划：数据与身份安全
 
-> 状态：PROPOSED（待用户评审；未批准前不得进入本期实施）。
+> 状态：`ACCEPTED`（2026-11-26 实施并验收完成）。
 
 ## 1. OGSM 与目标边界
 
@@ -51,10 +51,10 @@
 | 服务端会话 | 默认 DB 会话 + HttpOnly Cookie + CSRF，不默认 JWT | DECISIONS.md D06 |
 | 结构同步 | `TableSpec` 清单幂等 Ensure；`DiffSchema` 只读预览 | DECISIONS.md D20 |
 
-以下安全、结构同步和数据设计为 P02 待评审提案；只有用户确认本 DESIGN_PLAN 后才成为本期约束。
+以下安全、结构同步和数据设计为经用户确认的本期约束。
 
 - **统一入口**：密码哈希、Session、CSRF、登录限流和授权判定一律经 `infra/auth`；审计一律经 `infra/audit`；数据库访问一律经 `infra/db`。业务 handler 不得自建 Cookie、自写密码哈希或直接 `sql.Open`。
-- **复用 P01 中间件链**：在 infra/httpapi 既有的 RequestID→Recover→AccessLog 之后追加 Session→CSRF→Permission，不另建第二条链路；公开路由（登录/初始化/探针）显式豁免 CSRF 与登录态。
+- **复用 P01 中间件链**：infra/httpapi 的 RequestID→Recover→AccessLog 保持不变；会话认证→CSRF→权限由 system 模块的 `protected` 守卫按固定顺序统一执行，公开路由（登录/初始化/探针）显式不经该守卫，不另建第二条链路。
 - SQL-first，不引入 ORM；SQL 脚本按方言组织。
 - 用户密码只存成熟算法（bcrypt）生成的哈希；会话只存 token 的 SHA-256，不存 Cookie 原文。
 - 服务端是 RBAC 最终权威；前端隐藏菜单不构成授权。
@@ -207,8 +207,7 @@ CREATE INDEX idx_sys_audit_log_action ON sys_audit_log(action);
 
 ## 10. 风险、阶段依赖与确认
 
-- 前置阶段为 P01；P01 必须 ACCEPTED。
-- P02 设计先由用户确认；IMPL 在设计确认后校准；开工另需用户明确授权。
+- 前置阶段为 P01；P01 已于 2026-11-26 ACCEPTED。
 - 密码/会话/CSRF 属安全敏感实现，必须使用成熟算法/协议，不自造加密。
 - sys_datasource 的 SQL 持久化表与 sys_server 关系尚属候选；不纳入本期核心表。
 - 审计数据保留期与脱敏策略需与 LOGGING_DESIGN 一致。
@@ -218,3 +217,35 @@ CREATE INDEX idx_sys_audit_log_action ON sys_audit_log(action);
 | 日期 | 评审人 | 结论 | 需调整事项 |
 |---|---|---|---|
 | 2026-11-26 | 用户 | APPROVED（含开工授权） | 已补 infra/auth 唯一入口、复用 P01 中间件链、features.auth=true、统一类型口径；命名数据源 SQL 模型不纳入本期 |
+
+
+## 12. 验收结论与已知边界
+
+**结论**：PASS（2026-11-26）。
+
+**验收证据（真实执行）**：
+- `go test ./...` 全绿；`go vet ./...` 无输出；`CGO_ENABLED=1 go test -race ./apps/system/... ./infra/auth/... ./infra/httpapi/... ./kernel/...` 通过。
+- SQLite 集成：重复执行 `EnsureSchema` 幂等、`DiffSchema` 无自动差异；两路并发首次初始化仅一路成功；重复初始化返回 409。
+- HTTP 实测：初始化后 `/api/meta` 返回 `initialized=true`、`features.auth=true`、用户与 CSRF；未登录 401、缺 CSRF 403、字段校验 422、重复用户名 409、登出后会话 401。
+- 角色权限实测：创建角色携带 `system.audit.read`，详情返回 1 项；更新为 2 项后立即生效；未知权限返回 422。
+- 越权防护实测：仅持 `system.user.read/write` 的普通管理员创建超级管理员返回 403，重置超级管理员密码返回 403；`keyword` 过滤返回 1 条。
+- 可视化浏览器（Edge，可见窗口）实看：首次初始化页提交 admin/管理员/password123 后进入布局，菜单显示"系统（用户管理/角色管理/审计日志）+ 控制台"，无 console 错误、无网络错误。系统页面正文显示"页面入口未注册"属 P03 前端页面尚未交付的预期结果。
+
+**交付物**：`infra/auth`（bcrypt、会话令牌 SHA-256、CSRF HMAC、登录限流、授权）、`infra/audit`（Recorder + SQL 实现）、`infra/db/tx.go`、`apps/system`（model/store/schema/service/module/handlers）、`sql/sqlite/core/` 7 张核心表与索引脚本、`cmd/easyadmin` 数据库与系统模块装配。
+
+**已知边界（本期不做）**：
+- 前端页面入口与交互留 P03；当前菜单可见但页面正文提示"页面入口未注册"。
+- 配置中心写接口、任务中心、调度 SQL Store、文件存储与运维页面属后续阶段。
+- MySQL/PostgreSQL 仅有脚本位置，未完成方言集成测试，不列为正式支持。
+- 审计保留期与脱敏策略随 P04 运维域落地；当前只保证敏感字段不写入。
+- 单实例边界：登录限流与初始化串行锁为进程内实现，不承诺多实例一致。
+
+## 13. 偏差记录
+
+| 计划 | 实际 | 原因 |
+|---|---|---|
+| SQLite 驱动未指定 | 使用纯 Go `modernc.org/sqlite v1.34.5` | 避免 CGO，保证单二进制与 CI 可移植 |
+| catalog 查询脚本按完整路径注册 | 同时注册完整路径与裸文件名 | `infra/db` 目录查询按基名读取，避免另造第二套脚本源 |
+| CSRF token 可落库或签名 | 采用进程内密钥对会话哈希做 HMAC，不落库 | 与会话绑定且减少敏感数据持久化 |
+| API.md 含角色权限与角色详情 | 验收阶段补齐 `GET /roles/{id}`、角色权限读写与越权防护 | 使 RBAC 角色权限真正可配置，避免文档契约空转 |
+| `PUT /users/{id}` 描述含状态 | 收敛为展示名与角色，状态走独立端点 | 同一能力只保留一个受支持入口 |

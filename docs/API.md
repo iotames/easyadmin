@@ -156,7 +156,7 @@
 
 ### `GET /api/meta`
 
-> 实现状态：P00 返回 `app{name,version}`、`initialized=false`、`user=null`、空的 `permissions/menus` 与空 `csrf_token`；P01 起 `permissions/menus` 由已登记 Manifest 组装。P01 期间返回 `features.auth=false`（前端显示"认证未启用"占位页）；P02 完成后置 `features.auth=true`，并补齐初始化/登录态与 CSRF。
+> 实现状态：P02 已实现。`initialized` 由 sys_user 是否为空决定；`features.auth=true`；登录后返回当前用户、权限码、按权限过滤的菜单与绑定会话的 `csrf_token`；未登录时 `user=null`、`menus` 为空、`csrf_token` 为空。
 
 返回：
 
@@ -243,10 +243,10 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/system/users` | 列表，支持 `keyword`、`status` |
+| GET | `/api/system/users` | 列表，支持 `keyword`（用户名/显示名模糊）、`status` 过滤 |
 | POST | `/api/system/users` | 创建 |
 | GET | `/api/system/users/{id}` | 详情 |
-| PUT | `/api/system/users/{id}` | 更新展示名、角色、状态 |
+| PUT | `/api/system/users/{id}` | 更新展示名与角色（状态变更走独立端点） |
 | PUT | `/api/system/users/{id}/status` | 启用/禁用 |
 | PUT | `/api/system/users/{id}/password` | 管理员重置密码 |
 
@@ -269,6 +269,7 @@
 - 不返回 `password_hash`；
 - 用户名创建后不可改；
 - 不能禁用/删除最后一个活跃超级管理员；
+- 只有超级管理员可以授予超级管理员角色或管理超级管理员账号；
 - 禁用用户时同时删除其会话。
 
 ## 8. 角色与权限
@@ -282,12 +283,15 @@
 | GET | `/api/system/roles/{id}` | 角色详情（含权限码） |
 | PUT | `/api/system/roles/{id}` | 更新名称、描述、权限 |
 | DELETE | `/api/system/roles/{id}` | 删除非系统角色 |
-| GET | `/api/system/permissions` | 全部权限，按模块分组 |
+| GET | `/api/system/permissions` | 全部权限（按 module、code 排序） |
 
 规则：
 
-- `is_system=true` 的角色不可删除、不可改 `code`；
+- `is_system=true` 的角色不可删除、不可改 `code`，其权限由代码固定、不可修改；
+- 角色 `code` 唯一且保留编码（如 `super_admin`）不可重复创建；
+- `permissions` 为权限码数组，未知权限码返回 422；
 - 删除角色前检查是否仍被用户引用；
+- 只有超级管理员可以授予超级管理员角色；
 - 权限变更后相关用户下一次请求即生效。
 
 ## 9. 配置中心
@@ -434,7 +438,7 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
 }
 ```
 
-> 实现状态：P00 的 `checks` 仅包含 `app`；数据库与结构同步检查随 P01/P02 接入。
+> 实现状态：`checks` 仅包含 `app`。数据库连接与核心结构在启动时同步校验，失败则进程不启动，因此就绪探针只需反映进程状态。
 
 ## 15. 错误码规范
 

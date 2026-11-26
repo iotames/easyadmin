@@ -123,5 +123,9 @@ apps/system/users/
 - `infra/logx/`（结构化日志唯一入口）
 - `infra/apperror/`（稳定业务错误与 HTTP 状态映射）
 - `infra/httpapi/`（路由/中间件/响应外壳/绑定唯一入口）
+- `infra/auth/`（密码/会话令牌/CSRF/限流/授权唯一入口）
+- `infra/audit/`（审计事件与 SQL 记录器）
+- `sql/`（内嵌 SQL 结构脚本与 db.SQLSource）
+- `apps/system/`（内置用户、角色、权限、会话与审计）
 
-`cmd/easyadmin/`（组合根、用 infra/httpapi 组装 HTTP 面）与 `kernel/`（app、module）已建立最小骨架；P01 新增 `infra/logx`、`infra/apperror`、`infra/httpapi`，并落地最小内置模块 `apps/console`。`internal/archtest/` 提供依赖方向与裸 fetch 守卫。当前尚不存在的目标目录包括 `sql/`、`templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/_test），`assets/pages/` 目录已建但尚无页面；前端页面与 P3 验收仍未完成。
+`cmd/easyadmin/`（组合根、用 infra/httpapi 组装 HTTP 面）与 `kernel/`（app、module）已建立最小骨架；P01 新增 `infra/logx`、`infra/apperror`、`infra/httpapi` 与最小内置模块 `apps/console`；P02 新增 `infra/auth`、`infra/audit`、`sql/` 与 `apps/system`。`internal/archtest/` 提供依赖方向与裸 fetch 守卫。当前尚不存在的目标目录包括 `templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/_test），`assets/pages/` 目录已建但尚无页面；前端页面与 P03 验收仍未完成。

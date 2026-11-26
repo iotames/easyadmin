@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS sys_permission (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  module TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  description TEXT NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL
+);
