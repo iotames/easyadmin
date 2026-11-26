@@ -169,7 +169,7 @@ lib/easyconf、lib/easydb、lib/easyserver 是独立地基库；不反向依赖 
 | P5 | CLI 与模块生态 | 项目模板、模块生成、Provider/Adapter、示例 | v0.5 |
 | P6 | 稳定与正式发行 | 安全、性能、兼容、升级、发布与真实项目验证 | v1.0 |
 
-每期严格配对：`<项目>_DESIGN_PLAN.md` 负责设计与验收边界，`<项目>_IMPL_PLAN.md` 负责文件级实施步骤、测试、风险和回退；两份文件位于 `docs/plan/` 根部，执行期 `STEPn_*.md` 放同名项目子目录。P00-P03 已完成并归档到 `docs/done/`，计划目录当前 P04-P06 共 3 对 6 份，见 [docs/plan/README.md](docs/plan/README.md)。
+每期严格配对：`<项目>_DESIGN_PLAN.md` 负责设计与验收边界，`<项目>_IMPL_PLAN.md` 负责文件级实施步骤、测试、风险和回退；两份文件位于 `docs/plan/` 根部，执行期 `STEPn_*.md` 放同名项目子目录。P00-P03 已完成并归档到 `docs/done/`，计划目录当前 P04-P06 共 3 对 6 份，另有 P07 设计初稿 1 份（未成对，待定稿），见 [docs/plan/README.md](docs/plan/README.md)。
 
 ## 7. 文档索引
 
