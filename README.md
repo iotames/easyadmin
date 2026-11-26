@@ -136,4 +136,4 @@ make lib    # 同步 lib/ 下的 easy 系列依赖到上游最新代码
 
 启动：`./bin/easyadmin --listen 127.0.0.1:19527`；`--listen` 可省略，默认 127.0.0.1:19527。开发模式用 `make build-dev` 构建，WebUI 直接读磁盘且 `/_test/` 可访问。
 
-`.gitmodules` 声明的库走 `git submodule update --init --remote`（缺失自动克隆，已存在则更新，HEAD 处于 detached 属正常状态）；`lib/` 下未声明的普通仓库走 fetch + 快进同步。任一库有未提交改动会跳过并报错，不会静默覆盖。同步逻辑位于 `scripts/sync-lib.sh`，Makefile 仅保留入口。默认前缀为 `github:iotames`（走 SSH 别名 `github`），可用 `make lib LIB_GIT_PREFIX=git@github.com:iotames` 覆盖。
+`.gitmodules` 声明的库走 `git submodule update --init --remote`（缺失自动克隆，已存在则更新，HEAD 处于 detached 属正常状态）；`lib/` 下未声明的普通仓库走 fetch + 快进同步。任一库有未提交改动会跳过并报错，不会静默覆盖。同步逻辑位于 `scripts/sync-lib.sh`，Makefile 仅保留入口。默认前缀为 `github:iotames`（走 SSH 别名 `github`），可用 `make lib LIB_GIT_PREFIX=git@github.com:iotames` 覆盖。 若 `git clone --recurse-submodules` 因 HTTPS 访问 GitHub 失败，可用 SSH 别名补齐子模块：`git -c url."github:iotames/".insteadOf="https://github.com/iotames/" submodule update --init --recursive`。
