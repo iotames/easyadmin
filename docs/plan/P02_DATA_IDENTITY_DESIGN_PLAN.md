@@ -16,11 +16,12 @@
 
 | 当前资产 | 证据 | 本期处理 |
 |---|---|---|
-| 通用 DB/schema 能力 | infra/db/ | 先盘点 easydb adapter、Catalog、DDL Diff，复用 infra/db 的 EnsureTables/DiffSchema，不另造迁移引擎 |
+| 通用 DB/schema 能力 | infra/db/（Open、EnsureTables、DiffSchema、Catalog、GenerateSQL） | 复用 infra/db 的 EnsureTables/DiffSchema，不另造迁移引擎 |
 | 命名数据源管理 | infra/db/datasource.go | 目前 JSON 文件仓储；不能宣称已经有 sys_datasource 表 |
 | 配置启动入口 | infra/conf/ | P01 提供启动配置装配；D10 约束 v0.x 不做 Runtime Settings |
-| 认证、用户与会话 | 当前树中尚无 apps/system/users、infra/auth | 按本期设计新建，不能引用目标树冒充已有 |
+| 身份与授权 | 当前树中尚无 apps/system、infra/auth、infra/audit | 按本期设计新建，不能引用目标树冒充已有 |
 | 系统表与结构脚本 | 当前树中尚无 sql/ | 本期建立 SQLite 核心结构脚本与 `TableSpec` 清单 |
+| HTTP 主链路 | P01 交付 infra/httpapi（RequestID→Recover→AccessLog、Registrar、Bind） | 本期在其后追加 Session→CSRF→Permission，不另建链路 |
 
 ## 3. 本期范围
 
@@ -47,11 +48,15 @@
 | 决策点 | 当前有效结论 | 出处 |
 |---|---|---|
 | API 兼容 | API 不设路径版本，既有端点向下兼容 | DECISIONS.md D13，用户已确认 |
+| 服务端会话 | 默认 DB 会话 + HttpOnly Cookie + CSRF，不默认 JWT | DECISIONS.md D06 |
+| 结构同步 | `TableSpec` 清单幂等 Ensure；`DiffSchema` 只读预览 | DECISIONS.md D20 |
 
-以下安全、结构同步和数据设计均为 P02 待评审提案；只有用户确认本 DESIGN_PLAN 后才成为本期约束。
+以下安全、结构同步和数据设计为 P02 待评审提案；只有用户确认本 DESIGN_PLAN 后才成为本期约束。
 
+- **统一入口**：密码哈希、Session、CSRF、登录限流和授权判定一律经 `infra/auth`；审计一律经 `infra/audit`；数据库访问一律经 `infra/db`。业务 handler 不得自建 Cookie、自写密码哈希或直接 `sql.Open`。
+- **复用 P01 中间件链**：在 infra/httpapi 既有的 RequestID→Recover→AccessLog 之后追加 Session→CSRF→Permission，不另建第二条链路；公开路由（登录/初始化/探针）显式豁免 CSRF 与登录态。
 - SQL-first，不引入 ORM；SQL 脚本按方言组织。
-- 用户密码只存成熟算法生成的哈希；会话只存 token 哈希，不存 Cookie 原文。
+- 用户密码只存成熟算法（bcrypt）生成的哈希；会话只存 token 的 SHA-256，不存 Cookie 原文。
 - 服务端是 RBAC 最终权威；前端隐藏菜单不构成授权。
 - 首次管理员创建必须是原子流程；初始化完成后关闭重复初始化入口。
 - 禁止删除/禁用最后一个活跃超级管理员。
@@ -60,20 +65,19 @@
 
 ## 6. 数据结构（本期独立设计契约）
 
-类型映射遵循 DATA_DICT.md §1：主键 int64；时间 UTC；API RFC3339；SQLite/MySQL/PostgreSQL 方言类型分别定义。以下为本期逻辑结构；字段变更必须同步本文件与 DATA_DICT.md。
+类型映射遵循 DATA_DICT.md §1.1：主键逻辑类型为 int64；时间 UTC；API RFC3339；SQLite/MySQL/PostgreSQL 方言物理类型分别由 `sql/<dialect>/` 映射。以下 §6.1 为本期**逻辑结构**（统一用"自增主键"表示 int64 主键），§6.2 为**SQLite 参考 DDL**（物理类型），两者字段语义一致；字段变更必须同步本文件与 DATA_DICT.md。
 
-### 6.1 核心表字段
+### 6.1 核心表字段（逻辑结构）
 
 | 表 | 字段与类型/约束 | 关系/不变量 |
 |---|---|---|
-| sys_user | id BIGINT PK；username VARCHAR(64) UNIQUE NOT NULL；display_name VARCHAR(64) NOT NULL；password_hash VARCHAR(255) NOT NULL；status VARCHAR(16) NOT NULL DEFAULT active；last_login_at nullable；created_at/updated_at timestamp NOT NULL | 禁止用户名复用；至少一个 active 超级管理员 |
-| sys_role | id BIGINT PK；code VARCHAR(64) UNIQUE NOT NULL；name VARCHAR(64) NOT NULL；description VARCHAR(255) NOT NULL DEFAULT ''；is_system BOOLEAN NOT NULL DEFAULT false；created_at/updated_at timestamp NOT NULL | 系统角色不可删除；code 发布后稳定 |
-| sys_permission | id 自增主键；code VARCHAR(96) UNIQUE NOT NULL；name VARCHAR(64) NOT NULL；module VARCHAR(64) NOT NULL；status VARCHAR(16) NOT NULL DEFAULT active；description VARCHAR(255) NOT NULL DEFAULT ''；created_at timestamp NOT NULL | 权限码由 Manifest 登记；不复用已发布 code；模块下线标记 orphaned |
-| sys_role_permission | role_id BIGINT NOT NULL；permission_id BIGINT NOT NULL；PRIMARY KEY(role_id, permission_id) | FK 到 role/permission，关联删除按约定处理 |
-| sys_user_role | user_id BIGINT NOT NULL；role_id BIGINT NOT NULL；PRIMARY KEY(user_id, role_id) | FK 到 user/role |
-| sys_session | id VARCHAR(64) PK（token SHA-256）；user_id BIGINT NOT NULL；ip VARCHAR(64)；user_agent VARCHAR(255)；expires_at/created_at/last_seen_at timestamp NOT NULL | FK 到 user；按 user_id、expires_at 建索引；禁用用户立即撤销会话 |
-| sys_audit_log | id 自增主键；actor_id BIGINT nullable；actor_name VARCHAR(64)；action VARCHAR(96) NOT NULL；outcome VARCHAR(16) NOT NULL；target_type VARCHAR(64)；target_id VARCHAR(64)；summary VARCHAR(255) NOT NULL；detail_json JSON nullable；ip VARCHAR(64)；user_agent VARCHAR(255)；request_id VARCHAR(64)；created_at timestamp NOT NULL | 只追加；outcome 区分成功/失败/拒绝；detail 必须脱敏 |
-
+| sys_user | id 自增主键；username 短字符串(64) UNIQUE NOT NULL；display_name 短字符串(64) NOT NULL；password_hash 短字符串(255) NOT NULL；status 短字符串(16) NOT NULL DEFAULT active；last_login_at 时间 NULL；created_at/updated_at 时间 NOT NULL | 禁止用户名复用；至少一个 active 超级管理员 |
+| sys_role | id 自增主键；code 短字符串(64) UNIQUE NOT NULL；name 短字符串(64) NOT NULL；description 短字符串(255) NOT NULL DEFAULT ''；is_system 布尔 NOT NULL DEFAULT false；created_at/updated_at 时间 NOT NULL | 系统角色不可删除；code 发布后稳定 |
+| sys_permission | id 自增主键；code 短字符串(96) UNIQUE NOT NULL；name 短字符串(64) NOT NULL；module 短字符串(64) NOT NULL；status 短字符串(16) NOT NULL DEFAULT active；description 短字符串(255) NOT NULL DEFAULT ''；created_at 时间 NOT NULL | 权限码由 Manifest 登记；不复用已发布 code；模块下线标记 orphaned |
+| sys_role_permission | role_id 自增主键引用；permission_id 自增主键引用；PRIMARY KEY(role_id, permission_id) | FK 到 role/permission，关联删除按约定处理 |
+| sys_user_role | user_id 自增主键引用；role_id 自增主键引用；PRIMARY KEY(user_id, role_id) | FK 到 user/role |
+| sys_session | id 短字符串(64) PK（token SHA-256）；user_id 自增主键引用；ip 短字符串(64)；user_agent 短字符串(255)；expires_at/created_at/last_seen_at 时间 NOT NULL | FK 到 user；按 user_id、expires_at 建索引；禁用用户立即撤销会话 |
+| sys_audit_log | id 自增主键；actor_id 自增主键 NULL；actor_name 短字符串(64)；action 短字符串(96) NOT NULL；outcome 短字符串(16) NOT NULL；target_type 短字符串(64)；target_id 短字符串(64)；summary 短字符串(255) NOT NULL；detail_json JSON NULL；ip 短字符串(64)；user_agent 短字符串(255)；request_id 短字符串(64)；created_at 时间 NOT NULL | 只追加；outcome 区分 success/failure/denied；detail 必须脱敏 |
 
 ### 6.2 SQL 关系定义（SQLite 参考 DDL）
 
@@ -156,11 +160,12 @@ CREATE INDEX idx_sys_audit_log_created_at ON sys_audit_log(created_at);
 CREATE INDEX idx_sys_audit_log_actor_id ON sys_audit_log(actor_id);
 CREATE INDEX idx_sys_audit_log_action ON sys_audit_log(action);
 ~~~
+
 关系：一个用户可关联多个角色；一个角色可关联多个权限；会话归属用户；审计操作者允许为空（系统任务）。不得以删除权限记录的方式静默改变既有角色的权限解释；模块下线只把权限标记为 orphaned。
 
 ### 6.3 初始化与数据流
 
-1. 加载 Bootstrap Config，建立默认 SQLite 数据源。
+1. 加载 Bootstrap Config，按 `EASYADMIN_DB_DRIVER`/`EASYADMIN_DB_DSN` 建立默认 SQLite 数据源。
 2. 执行幂等结构 Ensure（core scope）：补建缺失的表和索引；同名表冲突启动失败。
 3. 结构差异只做 `DiffSchema` 预览；破坏性变更必须显式确认，不自动删改列。
 4. 同步系统角色与 Manifest 权限码；不再出现在 Manifest 中的权限标记 `orphaned`，不删除。
@@ -172,9 +177,11 @@ CREATE INDEX idx_sys_audit_log_action ON sys_audit_log(action);
 ## 7. API、配置与权限边界
 
 - 初始化、登录、登出、当前用户、密码更新、用户/角色/权限和审计 API 以 API.md 为唯一字段契约。
+- 认证/授权实现一律经 `infra/auth`；审计一律经 `infra/audit`；不新增第二条会话或权限判定路径。
 - 配置中心继续遵守 D10：只管理 Bootstrap Config；不创建 sys_setting。
 - 所有写 API 先做身份验证、CSRF、权限判断，再执行用例；前端菜单不代替后端鉴权。
 - 401/403/409/422 错误按 API.md 固定结构返回。
+- 完成本期后 `/api/meta` 返回 `features.auth=true`，前端移除"P02 提供初始化"占位页，进入真实 setup/login 流程。
 
 ## 8. 验收标准
 
@@ -184,6 +191,7 @@ CREATE INDEX idx_sys_audit_log_action ON sys_audit_log(action);
 - 最后一个活跃超级管理员不能被删除或禁用。
 - 未登录 401、无权限 403、CSRF 失败 403、字段校验 422、唯一约束冲突 409。
 - 缺表/缺索引能自动补齐；列差异只预览不自动执行；单表结构脚本失败可定位，不伪装成功。
+- `/api/meta` 返回 `features.auth=true`，初始化/登录/登出/会话失效全流程可操作。
 - SQLite 集成测试真实执行；PostgreSQL/MySQL 只有在 CI 提供数据库并通过方言测试后才列为支持。
 
 ## 9. 质量自评
@@ -209,4 +217,4 @@ CREATE INDEX idx_sys_audit_log_action ON sys_audit_log(action);
 
 | 日期 | 评审人 | 结论 | 需调整事项 |
 |---|---|---|---|
-| 待评审 | 待确认 | PROPOSED | P02 尚未获确认；命名数据源 SQL 模型不纳入本期 |
+| 2026-11-26 | 用户 | APPROVED（含开工授权） | 已补 infra/auth 唯一入口、复用 P01 中间件链、features.auth=true、统一类型口径；命名数据源 SQL 模型不纳入本期 |

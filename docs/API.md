@@ -156,7 +156,7 @@
 
 ### `GET /api/meta`
 
-> 实现状态：P00 返回 `app{name,version}`、`initialized=false`、`user=null`、空的 `permissions/menus/features` 与空 `csrf_token`；`app.env`、登录态、权限、菜单和 CSRF 由 P01/P02 按本契约补齐。
+> 实现状态：P00 返回 `app{name,version}`、`initialized=false`、`user=null`、空的 `permissions/menus` 与空 `csrf_token`；P01 起 `permissions/menus` 由已登记 Manifest 组装。P01 期间返回 `features.auth=false`（前端显示"认证未启用"占位页）；P02 完成后置 `features.auth=true`，并补齐初始化/登录态与 CSRF。
 
 返回：
 

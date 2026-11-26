@@ -120,5 +120,8 @@ apps/system/users/
 - `infra/credential/`
 - `infra/tasks/`（当前为纯内存任务中心）
 - `infra/scheduler/`（当前有 Store 接口和 `MemoryStore`，数据库 Store 未实现）
+- `infra/logx/`（结构化日志唯一入口）
+- `infra/apperror/`（稳定业务错误与 HTTP 状态映射）
+- `infra/httpapi/`（路由/中间件/响应外壳/绑定唯一入口）
 
-`cmd/easyadmin/`（组合根、最小 HTTP 面）与 `kernel/`（app、module）已建立最小骨架，`internal/archtest/` 提供依赖方向与裸 fetch 守卫。当前尚不存在的目标目录包括 `apps/`、`sql/`、`templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/_test），`assets/pages/` 目录已建但尚无页面；前端页面与 P3 验收仍未完成。
+`cmd/easyadmin/`（组合根、用 infra/httpapi 组装 HTTP 面）与 `kernel/`（app、module）已建立最小骨架；P01 新增 `infra/logx`、`infra/apperror`、`infra/httpapi`，并落地最小内置模块 `apps/console`。`internal/archtest/` 提供依赖方向与裸 fetch 守卫。当前尚不存在的目标目录包括 `sql/`、`templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/_test），`assets/pages/` 目录已建但尚无页面；前端页面与 P3 验收仍未完成。
