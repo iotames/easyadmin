@@ -38,6 +38,7 @@ func (s *System) registerRoutes(reg module.Registrar) error {
 		{"DELETE /api/system/roles/{id}", s.protected("system.role.write", s.handleDeleteRole)},
 		{"GET /api/system/permissions", s.protected("system.role.read", s.handleListPermissions)},
 		{"GET /api/system/audit", s.protected("system.audit.read", s.handleListAudit)},
+		{"GET /api/system/config", s.protected("system.config.read", s.handleListConfig)},
 	}
 	for _, rt := range routes {
 		if err := reg.Handle(rt.pattern, rt.handler); err != nil {
@@ -413,6 +414,19 @@ func (s *System) handleListAudit(w http.ResponseWriter, r *http.Request, _ *Prin
 		})
 	}
 	httpapi.WriteOK(w, r, map[string]any{"items": out})
+}
+
+func (s *System) handleListConfig(w http.ResponseWriter, r *http.Request, _ *Principal) {
+	items := s.ConfigItems()
+	for i := range items {
+		if items[i].Secret {
+			if items[i].Current != "" {
+				items[i].Configured = true
+			}
+			items[i].Current = ""
+		}
+	}
+	httpapi.WriteOK(w, r, map[string]any{"items": items})
 }
 
 func (s *System) meta(ctx context.Context, r *http.Request) (httpapi.MetaValues, error) {

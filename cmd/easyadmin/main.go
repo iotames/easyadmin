@@ -83,7 +83,7 @@ func run(args []string) error {
 
 	router := httpapi.NewRouter()
 	catalog := httpapi.NewCatalog()
-	sysModule := system.New(database, catalog)
+	sysModule := system.New(database, catalog, system.WithConfig(manager))
 	modules := []module.Module{console.New(), sysModule}
 
 	runtime, err := kernelapp.New(kernelapp.Options{Name: "easyadmin", Version: version, Modules: modules})
@@ -91,10 +91,10 @@ func run(args []string) error {
 		return fmt.Errorf("装配应用: %w", err)
 	}
 	sysModule.SetManifestSource(runtime)
-	if err := runtime.Declare(manager); err != nil {
+	if err := runtime.Declare(registrar{conf: manager}); err != nil {
 		return fmt.Errorf("声明模块配置: %w", err)
 	}
-	if err := runtime.Register(registrar{router: router, catalog: catalog}); err != nil {
+	if err := runtime.Register(registrar{router: router, catalog: catalog, conf: manager}); err != nil {
 		return fmt.Errorf("登记模块资源: %w", err)
 	}
 

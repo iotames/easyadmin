@@ -1,11 +1,13 @@
 package conf
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -73,8 +75,10 @@ type confManager struct {
 }
 
 type configMeta struct {
-	Group string
-	Order int
+	Group     string
+	Order     int
+	Secret    bool
+	HotReload string
 }
 
 // defaultLoader Load 的默认实现
@@ -127,21 +131,47 @@ func (m *confManager) bindBaseVars() {
 
 	m.ec.StringVar(m.listenAddr, "EASYADMIN_LISTEN", defaultListenAddr, "监听地址",
 		"默认 127.0.0.1:19527；需要局域网访问时改为 0.0.0.0:19527 并配置鉴权")
+	m.setMeta("EASYADMIN_LISTEN", Meta{Group: "应用", Order: 10, HotReload: HotReloadRestart})
 	m.ec.StringVar(m.adminAddr, "EASYADMIN_ADMIN", defaultAdminAddr, "独立管理接口地址",
 		"空=与监听地址同端口；需要单独回环管理时填写 127.0.0.1:19528")
+	m.setMeta("EASYADMIN_ADMIN", Meta{Group: "应用", Order: 20, HotReload: HotReloadRestart})
 	m.ec.StringVar(m.configFile, "EASYADMIN_CONFIG", defaultConfigFile, "配置文件路径",
 		"相对工作目录；空=仅环境变量与命令行")
+	m.setMeta("EASYADMIN_CONFIG", Meta{Group: "应用", Order: 30, HotReload: HotReloadRestart})
 	m.ec.StringVar(m.dataDir, "EASYADMIN_DATA_DIR", defaultDataDir, "运行数据目录",
 		"SQLite、日志、上传和缓存默认放在此目录")
+	m.setMeta("EASYADMIN_DATA_DIR", Meta{Group: "应用", Order: 40, HotReload: HotReloadRestart})
 	m.ec.StringVar(m.dbDriver, "EASYADMIN_DB_DRIVER", defaultDBDriver, "默认数据源驱动",
 		"sqlite / mysql / postgres")
+	m.setMeta("EASYADMIN_DB_DRIVER", Meta{Group: "数据库", Order: 10, HotReload: HotReloadRestart})
 	m.ec.StringVar(m.dbDSN, "EASYADMIN_DB_DSN", defaultDBDSN, "默认数据源 DSN",
 		"SQLite 为文件路径；MySQL/PostgreSQL 为连接串")
+	m.setMeta("EASYADMIN_DB_DSN", Meta{Group: "数据库", Order: 20, Secret: true, HotReload: HotReloadRestart})
 	m.ec.StringVar(m.logLevel, "EASYADMIN_LOG_LEVEL", defaultLogLevel, "日志级别",
 		"debug / info / warn / error")
+	m.setMeta("EASYADMIN_LOG_LEVEL", Meta{Group: "日志", Order: 10, HotReload: HotReloadRestart})
 	m.ec.BoolVar(m.logToFile, "EASYADMIN_LOG_TO_FILE", false, "文件存档")
+	m.setMeta("EASYADMIN_LOG_TO_FILE", Meta{Group: "日志", Order: 20, HotReload: HotReloadRestart})
 	m.ec.StringVar(m.logFile, "EASYADMIN_LOG_FILE", defaultLogFile, "日志文件路径")
+	m.setMeta("EASYADMIN_LOG_FILE", Meta{Group: "日志", Order: 30, HotReload: HotReloadRestart})
 	m.ec.StringVar(m.logMaxSize, "EASYADMIN_LOG_MAX_SIZE", "50", "文件大小上限（整数 MB，0=不限制）")
+	m.setMeta("EASYADMIN_LOG_MAX_SIZE", Meta{Group: "日志", Order: 40, HotReload: HotReloadRestart})
+}
+
+// setMeta 记录配置项元数据；装配期调用，仍持锁以兼容后续运行期扩展。
+func (m *confManager) setMeta(name string, meta Meta) {
+	if strings.TrimSpace(meta.Group) == "" {
+		meta.Group = "general"
+	}
+	if meta.HotReload == "" {
+		meta.HotReload = HotReloadNone
+	}
+	m.mu.Lock()
+	if m.groups == nil {
+		m.groups = map[string]configMeta{}
+	}
+	m.groups[name] = configMeta{Group: meta.Group, Order: meta.Order, Secret: meta.Secret, HotReload: meta.HotReload}
+	m.mu.Unlock()
 }
 
 // watchFiles 返回热更监听/重载顺序的文件列表（优先级从低到高，configFile 覆盖工作目录 .env）
@@ -339,14 +369,29 @@ func (m *confManager) Register(pval any, name, defval, title string, usage ...st
 
 // RegisterGroup 按分组注册配置项；group 为空时归入 general。
 func (m *confManager) RegisterGroup(group string, order int, pval any, name, defval, title string, usage ...string) error {
-	if strings.TrimSpace(group) == "" {
+	return m.RegisterWith(pval, name, defval, title, Meta{Group: group, Order: order}, usage...)
+}
+
+// RegisterWith 按显式元数据注册配置项；group 为空时归入 general，热更语义缺省 none。
+func (m *confManager) RegisterWith(pval any, name, defval, title string, meta Meta, usage ...string) error {
+	group := strings.TrimSpace(meta.Group)
+	if group == "" {
 		group = "general"
+	}
+	hot := meta.HotReload
+	if hot == "" {
+		hot = HotReloadNone
+	}
+	switch hot {
+	case HotReloadNone, HotReloadHot, HotReloadRestart:
+	default:
+		return fmt.Errorf("conf: RegisterWith(%s) 非法热更语义 %q", name, hot)
 	}
 	m.mu.Lock()
 	if m.groups == nil {
 		m.groups = map[string]configMeta{}
 	}
-	m.groups[name] = configMeta{Group: group, Order: order}
+	m.groups[name] = configMeta{Group: group, Order: meta.Order, Secret: meta.Secret, HotReload: hot}
 	m.mu.Unlock()
 	return m.registerValue(pval, name, defval, title, usage...)
 }
@@ -466,6 +511,9 @@ func (m *confManager) List() []ConfigItem {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	items := m.ec.GetItems()
+	args := parseArgsToMap(m.args)
+	files := m.watchFiles()
+	groupIdx := map[string]int{}
 	out := make([]ConfigItem, 0, len(items))
 	for _, it := range items {
 		if it == nil || it.Name == "" || it.Value == nil {
@@ -482,12 +530,71 @@ func (m *confManager) List() []ConfigItem {
 		if meta, ok := m.groups[it.Name]; ok {
 			item.Group = meta.Group
 			item.Order = meta.Order
+			item.Secret = meta.Secret
+			item.HotReload = meta.HotReload
 		} else {
 			item.Group = "general"
+			item.HotReload = HotReloadNone
+		}
+		item.Writable = false
+		item.Source = m.sourceLocked(it.Name, item.Current, item.Defval, args, files)
+		if item.Secret {
+			item.Configured = item.Current != ""
+			item.Current = ""
+		}
+		if _, ok := groupIdx[item.Group]; !ok {
+			groupIdx[item.Group] = len(groupIdx)
 		}
 		out = append(out, item)
 	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if groupIdx[out[i].Group] != groupIdx[out[j].Group] {
+			return groupIdx[out[i].Group] < groupIdx[out[j].Group]
+		}
+		if out[i].Order != out[j].Order {
+			return out[i].Order < out[j].Order
+		}
+		return out[i].Key < out[j].Key
+	})
 	return out
+}
+
+// sourceLocked 判定配置项当前生效值来源；调用方须持 m.mu。
+// 优先级与加载顺序一致：命令行 > 环境变量 > 配置文件 > 默认值。
+func (m *confManager) sourceLocked(name, current, defval string, args map[string]string, files []string) string {
+	if _, ok := args[name]; ok {
+		return "command_line"
+	}
+	if _, ok := os.LookupEnv(name); ok {
+		return "environment"
+	}
+	// 工作目录 .env / --config 文件由 easyconf 自动写入全部默认值，
+	// 因此"文件里存在该键"不等于用户显式配置；值仍等于默认值时归为 default。
+	if current != defval {
+		for _, file := range files {
+			if fileHasKey(file, name) {
+				return "file"
+			}
+		}
+	}
+	return "default"
+}
+
+// fileHasKey 判断配置文件是否显式包含某个键；文件不存在视为不包含。
+func fileHasKey(file, name string) bool {
+	f, err := os.Open(file)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		key, _ := easyconf.GetConfStrByLine(scanner.Text())
+		if key == name {
+			return true
+		}
+	}
+	return false
 }
 
 // typeNameOf 由注册值指针推导配置项类型名（easyconf 的 Value 恒为指针）。

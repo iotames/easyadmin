@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/iotames/easyadmin/infra/conf"
 	"github.com/iotames/easyadmin/infra/db"
 	"github.com/iotames/easyadmin/infra/httpapi"
 	"github.com/iotames/easyadmin/kernel/module"
@@ -32,17 +33,35 @@ type Module struct {
 	sys            *System
 	adminPassword  *string
 	manifestSource ManifestSource
+	config         ConfigLister
+}
+
+// ConfigLister 提供只读配置元数据（通常由 infra/conf.Manager 实现）。
+type ConfigLister interface {
+	List() []conf.ConfigItem
+}
+
+// Option 调整系统模块的可选依赖。
+type Option func(*Module)
+
+// WithConfig 注入配置元数据来源；未注入时配置页返回空列表。
+func WithConfig(l ConfigLister) Option {
+	return func(m *Module) { m.config = l }
 }
 
 // New 创建系统模块。catalog 用于按权限过滤菜单。
-func New(d *db.DB, catalog *httpapi.Catalog) *Module {
+func New(d *db.DB, catalog *httpapi.Catalog, opts ...Option) *Module {
 	m := &Module{}
+	for _, opt := range opts {
+		opt(m)
+	}
 	m.sys = NewSystem(d, catalog, func() string {
 		if m.adminPassword == nil {
 			return ""
 		}
 		return *m.adminPassword
 	})
+	m.sys.SetConfig(m.config)
 	return m
 }
 
@@ -69,6 +88,7 @@ func (Module) Manifest() module.Manifest {
 func (m *Module) Declare(reg module.ConfigRegistrar) error {
 	m.adminPassword = new(string)
 	return reg.Register(m.adminPassword, "EASYADMIN_ADMIN_PASSWORD", "", "初始管理员口令",
+		module.ConfigMeta{Group: "system", Order: 10, Secret: true, HotReload: module.HotReloadRestart},
 		"非回环地址首次初始化时必填；同时作为确认口令")
 }
 

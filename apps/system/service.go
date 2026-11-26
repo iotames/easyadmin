@@ -13,6 +13,7 @@ import (
 	"github.com/iotames/easyadmin/infra/apperror"
 	"github.com/iotames/easyadmin/infra/audit"
 	"github.com/iotames/easyadmin/infra/auth"
+	"github.com/iotames/easyadmin/infra/conf"
 	"github.com/iotames/easyadmin/infra/db"
 	"github.com/iotames/easyadmin/infra/httpapi"
 )
@@ -30,6 +31,7 @@ type System struct {
 	limiter       *auth.RateLimiter
 	recorder      audit.Recorder
 	adminPassword func() string
+	config        ConfigLister
 	setupMu       sync.Mutex
 }
 
@@ -277,6 +279,17 @@ func (s *System) Authenticate(ctx context.Context, cookieRaw string) (*Principal
 
 // CSRF 返回 CSRF 服务。
 func (s *System) CSRF() *auth.CSRF { return s.csrf }
+
+// SetConfig 注入配置元数据来源。
+func (s *System) SetConfig(l ConfigLister) { s.config = l }
+
+// ConfigItems 返回只读配置元数据；未注入来源时返回空列表。
+func (s *System) ConfigItems() []conf.ConfigItem {
+	if s.config == nil {
+		return []conf.ConfigItem{}
+	}
+	return s.config.List()
+}
 
 // Logout 删除当前会话。
 func (s *System) Logout(ctx context.Context, p *Principal, ip, ua, reqID string) error {

@@ -14,6 +14,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/iotames/easyadmin/infra/conf"
 	"github.com/iotames/easyadmin/infra/db"
 	"github.com/iotames/easyadmin/infra/httpapi"
 	"github.com/iotames/easyadmin/infra/logx"
@@ -154,12 +155,12 @@ func (r testReg) RegisterPermission(p module.PermissionMeta) error {
 	return r.catalog.AddPermission(httpapi.Permission{Code: p.Code, Name: p.Name})
 }
 
-func newHTTP(t *testing.T) (http.Handler, *Module) {
+func newHTTP(t *testing.T, opts ...Option) (http.Handler, *Module) {
 	t.Helper()
 	d := openTestDB(t)
 	router := httpapi.NewRouter()
 	catalog := httpapi.NewCatalog()
-	m := New(d, catalog)
+	m := New(d, catalog, opts...)
 	if err := m.Register(testReg{router, catalog}); err != nil {
 		t.Fatal(err)
 	}
@@ -177,6 +178,57 @@ func newHTTP(t *testing.T) (http.Handler, *Module) {
 		Meta:      m,
 	})
 	return h, m
+}
+
+type fakeConfig struct{ items []conf.ConfigItem }
+
+func (f fakeConfig) List() []conf.ConfigItem { return f.items }
+
+func TestConfigEndpointMasksSecrets(t *testing.T) {
+	h, _ := newHTTP(t, WithConfig(fakeConfig{items: []conf.ConfigItem{
+		{Key: "EASYADMIN_ADMIN_PASSWORD", Title: "初始管理员口令", Secret: true, Current: "super-secret", Source: "environment"},
+		{Key: "EASYADMIN_LISTEN", Title: "监听地址", Current: ":19527", Source: "file", HotReload: "restart"},
+	}}))
+	rec := do(t, h, http.MethodPost, "/api/auth/setup", `{"username":"admin","display_name":"管理员","password":"password123"}`, nil, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("setup 失败: %d %s", rec.Code, rec.Body.String())
+	}
+	var session *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "ea_session" {
+			session = c
+		}
+	}
+	rec = do(t, h, http.MethodGet, "/api/meta", "", session, "")
+	csrf, _ := decodeBody(t, rec.Body)["data"].(map[string]any)["csrf_token"].(string)
+	if csrf == "" {
+		t.Fatal("csrf 为空")
+	}
+
+	rec = do(t, h, http.MethodGet, "/api/system/config", "", session, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("配置接口 = %d %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "super-secret") {
+		t.Fatal("敏感配置值泄露到响应")
+	}
+	body := decodeBody(t, rec.Body)
+	items := body["data"].(map[string]any)["items"].([]any)
+	if len(items) != 2 {
+		t.Fatalf("配置项数量 = %d", len(items))
+	}
+	first := items[0].(map[string]any)
+	if first["secret"] != true || first["value"] != "" || first["configured"] != true || first["writable"] != false {
+		t.Fatalf("敏感项字段错误: %v", first)
+	}
+	if items[1].(map[string]any)["value"] != ":19527" {
+		t.Fatalf("非敏感项值被误遮蔽: %v", items[1])
+	}
+
+	put := do(t, h, http.MethodPut, "/api/system/config/EASYADMIN_LISTEN", `{"value":"x"}`, session, csrf)
+	if put.Code != http.StatusNotFound {
+		t.Fatalf("P03 不应实现配置写入，实际 %d", put.Code)
+	}
 }
 
 type readyTrue struct{}

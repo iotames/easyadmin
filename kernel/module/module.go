@@ -36,9 +36,25 @@ type PermissionMeta struct {
 	Name string
 }
 
+// ConfigMeta 是配置项的注册元数据。
+// 敏感级别与热更语义必须由注册方显式声明，不允许运行期按键名猜测。
+type ConfigMeta struct {
+	Group     string // 配置分组
+	Order     int    // 组内排序
+	Secret    bool   // 敏感项：只返回是否已配置，不回显值
+	HotReload string // none / hot / restart
+}
+
+// 配置热更语义。
+const (
+	HotReloadNone    = "none"
+	HotReloadHot     = "hot"
+	HotReloadRestart = "restart"
+)
+
 // ConfigRegistrar 接收配置元数据声明，由组合根提供实现。
 type ConfigRegistrar interface {
-	Register(pval any, name, defval, title string, usage ...string) error
+	Register(pval any, name, defval, title string, meta ConfigMeta, usage ...string) error
 }
 
 // Registrar 接收运行资源登记，由组合根提供实现。

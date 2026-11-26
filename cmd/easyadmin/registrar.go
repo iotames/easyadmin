@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"github.com/iotames/easyadmin/infra/conf"
 	"github.com/iotames/easyadmin/infra/httpapi"
 	"github.com/iotames/easyadmin/kernel/module"
 )
@@ -12,6 +13,7 @@ import (
 type registrar struct {
 	router  *httpapi.Router
 	catalog *httpapi.Catalog
+	conf    conf.Manager
 }
 
 func (r registrar) Handle(pattern string, h http.Handler) error {
@@ -26,4 +28,10 @@ func (r registrar) RegisterPage(p module.PageMeta) error {
 
 func (r registrar) RegisterPermission(p module.PermissionMeta) error {
 	return r.catalog.AddPermission(httpapi.Permission{Code: p.Code, Name: p.Name})
+}
+
+func (r registrar) Register(pval any, name, defval, title string, meta module.ConfigMeta, usage ...string) error {
+	return r.conf.RegisterWith(pval, name, defval, title, conf.Meta{
+		Group: meta.Group, Order: meta.Order, Secret: meta.Secret, HotReload: meta.HotReload,
+	}, usage...)
 }
