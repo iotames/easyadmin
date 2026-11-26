@@ -345,15 +345,15 @@ ctx = {
   perm,                // 权限判断
   store,               // 只读全局状态
   setTitle(title),
-  setBreadcrumb(items),
-  setActions(actions), // 页面级操作按钮
+  setActions(actions), // 页面级操作按钮，渲染在 PageHeader
   setDescription(text),// 页头描述
   setRefresh(enabled), // 是否显示统一刷新按钮
+  bindActions(map),    // 绑定 data-act：同时覆盖页头动作与页面主体动作
   onCleanup(fn),       // 注册卸载清理
 }
 ```
 
-页面级操作按钮由 `ctx.setActions` 提供，渲染在 `PageHeader` 内，属于页面局部，不是全局栏。
+页面级操作按钮由 `ctx.setActions` 提供，渲染在 `PageHeader` 内，属于页面局部，不是全局栏。页头与页面主体不在同一 DOM 子树，页面的 `data-act` 必须用 `ctx.bindActions(map)` 绑定（内部同时监听 `#page-head` 与 `ctx.el`）；`bindActions(ctx.el, ...)` 只覆盖页面主体，会漏掉页头按钮。
 
 ## 8. API 客户端
 

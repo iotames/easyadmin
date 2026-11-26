@@ -28,8 +28,8 @@ import (
 	"github.com/iotames/easyadmin/webui"
 )
 
-// version 在 P02 为开发标识；正式构建信息在发行阶段接入。
-const version = "0.1.0-p02"
+// version 在 P03 为开发标识；正式构建信息在发行阶段接入。
+const version = "0.1.0-p03"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {

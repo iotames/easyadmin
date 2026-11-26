@@ -1,8 +1,8 @@
-﻿/**
+/**
  * 路由：路径匹配 → 动态 import 页面入口 → mount/unmount。
  * 页面只能操作 ctx.el；切换页面先 unmount 旧页面并清理监听器/计时器/请求。
  */
-import { esc } from './dom.js';
+import { esc, bindActions as bindActionsDOM } from './dom.js';
 import { pageHeaderHTML, refreshButtonHTML } from '../components/page-header.js';
 import { emptyHTML } from '../components/empty.js';
 import { findByPath, firstPagePath, setActive } from './menu.js';
@@ -175,6 +175,14 @@ export function createRouter(options) {
       setDescription(description) { renderHeaderWith({ description }); },
       setActions,
       setRefresh(enabled) { renderHeaderWith({ refresh: !!enabled }); },
+      // 页面级动作同时覆盖页头（setActions 渲染区）与页面主体，统一经 data-act 分发。
+      bindActions(handlers) {
+        const offHead = bindActionsDOM(layout.pageHead, handlers);
+        const offBody = bindActionsDOM(layout.pageBody, handlers);
+        const off = () => { offHead(); offBody(); };
+        disposers.push(off);
+        return off;
+      },
       onCleanup(fn) { if (typeof fn === 'function') disposers.push(fn); },
     };
 

@@ -1,5 +1,5 @@
 /** 角色管理：创建、编辑权限与删除非系统角色。 */
-import { esc, bindActions } from '../../../core/dom.js';
+import { esc } from '../../../core/dom.js';
 import { createDataTable } from '../../../components/data-table.js';
 import { form } from '../../../components/form.js';
 import { openModal, confirmDialog } from '../../../components/modal.js';
@@ -138,7 +138,7 @@ export async function mount(ctx) {
     }
   }
 
-  off = bindActions(ctx.el, {
+  off = ctx.bindActions({
     'role-create': () => openEditor(null),
     'role-edit': (el) => { const row = findRole(el.getAttribute('data-id')); if (row) openEditor(row); },
     'role-delete': (el) => { const row = findRole(el.getAttribute('data-id')); if (row) removeRole(row); },

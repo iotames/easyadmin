@@ -1,5 +1,5 @@
 /** 用户管理：筛选、创建、编辑角色、启停与重置密码。 */
-import { esc, bindActions } from '../../../core/dom.js';
+import { esc } from '../../../core/dom.js';
 import { fmtDateTime } from '../../../core/format.js';
 import { createDataTable } from '../../../components/data-table.js';
 import { createFilterBar } from '../../../components/filter-bar.js';
@@ -203,7 +203,7 @@ export async function mount(ctx) {
     }
   }
 
-  off = bindActions(ctx.el, {
+  off = ctx.bindActions({
     'user-create': () => openEditor(null),
     'user-edit': (el) => { const row = findRow(el.getAttribute('data-id')); if (row) openEditor(row); },
     'user-status': (el) => { const row = findRow(el.getAttribute('data-id')); if (row) toggleStatus(row); },

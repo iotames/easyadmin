@@ -1,6 +1,6 @@
 # P03 设计计划：WebUI 管理台
 
-> 状态：`APPROVED`（2026-11-26 用户确认并授权实施）。
+> 状态：`ACCEPTED`（2026-11-26 实施、测试与浏览器验收完成）。
 
 ## 1. 背景与目标
 
@@ -159,3 +159,33 @@ P03 不新增业务持久化表。唯一持久化影响是 `sys_permission` 的�
 | 2026-11-25 | 用户 | 授权提前落地 WebUI 基础资产（core/components/styles/_test），不改变本期整体状态 | P02 前置、登录/页面联调与本期验收仍未完成；本文件仍为 `PROPOSED` |
 | 2026-11-26 | 智能体自审 | 契约校正：页面 ID 集、菜单排序、权限码单源、配置只读边界；文档定稿待用户确认 | 实施仍冻结，需用户确认后方可开工 |
 | 2026-11-26 | 用户 | APPROVED（含开工、测试、验收、提交并推送授权） | 契约维持自审定稿；按本文件验收标准执行 |
+| 2026-11-26 | 智能体 | ACCEPTED（本地验收全绿） | 无；归档待用户确认 |
+
+## 13. 验收结论与已知边界
+
+验收日期：2026-11-26。结论：`ACCEPTED`。
+
+### 13.1 验收证据
+
+- `gofmt -l` 无输出；`go vet ./...`、`go test ./...` 通过；`go build -tags dev` 与生产构建均通过。
+- 浏览器测试面 `_test/index.html` 51/51 通过；console 仅两条 HEAD 资源探测的预期 404，network errors 为空。
+- 生产构建 `/_test/index.html` 返回 404，`/` 与 `/assets/core/pages.js` 返回 200，证明生产 embed 不含测试面。
+- 真实 Edge 浏览器全流程：初始化 admin/管理员/password123 → 登录 → 仪表盘 → 创建角色 → 创建用户并分配角色 → 编辑用户 → 禁用/启用 → 重置密码 → 编辑角色权限 → 删除临时角色 → 审计 → 配置（敏感项仅显示“已配置”）→ 个人资料改密 → 登出 → 新密码登录 → 普通用户登录。
+- 权限边界：普通用户菜单仅含 `/system/users`、`/system/audit`、`/profile`；直接请求 `GET /api/system/config` 返回 403。
+- 按需加载：登录后仅加载 `dashboard/index.js`；进入角色、用户页后才分别加载对应 ESM。
+- 验收截图：`docs/acceptance/p03/01-setup.png` 至 `12-operator-view.png`。
+
+### 13.2 验收中发现并修复的缺陷
+
+1. 页头动作按钮无响应：`ctx.setActions` 渲染在 `#page-head`，页面却用 `bindActions(ctx.el, ...)` 只监听 `#page-body`。修复为 `ctx.bindActions(map)` 同时绑定页头与页面主体，用户/角色页改用该入口。
+2. 前端 `ctx.api` 只注入 `{get, post}`，页面调用 `put` 时报 `ctx.api.put is not a function`。修复为 boot 注入完整 `api` 对象。
+
+### 13.3 已知边界
+
+- 配置在线写入未实现，`PUT /api/system/config/{key}` 当前返回 404；P03 只读。
+- P04 页面（logs、tasks、schedules）未登记 entry，未交付前不可达。
+- 业务页面接缝已交付（`httpapi.HandlerOptions.AppAssets` + `/assets/app/pages.js` 合并）；脚手架与自动升级属 P05。
+- 单实例部署。SQLite 在多个写请求真正并发时可能因锁返回 500；本轮验收脚本快速连点曾复现一次，串行操作稳定。生产建议启用 `busy_timeout`/WAL，属基础设施演进项，不在 P03 范围。
+- 审计页只读查询，不提供导出。
+- 验收截图为 headless Edge、1280×720。
+- 归档动作（DESIGN_PLAN 迁 `docs/done/`、清理执行期文档）待用户确认后执行。

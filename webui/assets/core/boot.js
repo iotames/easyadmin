@@ -1,6 +1,6 @@
 /** 启动流程：主题 → /api/meta → 初始化 / 登录 / 主布局 → 路由。 */
 import { esc } from './dom.js';
-import { get, post, configure, setCsrfToken, exists } from './api.js';
+import { api, get, post, configure, setCsrfToken, exists } from './api.js';
 import { notify, clearToasts } from './notify.js';
 import { store } from './store.js';
 import { createPerm } from './perm.js';
@@ -233,7 +233,7 @@ async function mountApp(meta) {
     layout: layoutHandle,
     store,
     notify,
-    api: { get, post },
+    api,
     perm: permissions,
   });
   initTooltip();
