@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -12,6 +13,8 @@ import (
 type fakeModule struct {
 	id          string
 	deps        []string
+	pages       []module.PageMeta
+	perms       []module.PermissionMeta
 	events      *[]string
 	startErr    error
 	stopErr     error
@@ -20,7 +23,7 @@ type fakeModule struct {
 }
 
 func (f *fakeModule) Manifest() module.Manifest {
-	return module.Manifest{ID: f.id, DependsOn: f.deps}
+	return module.Manifest{ID: f.id, DependsOn: f.deps, Pages: f.pages, Permissions: f.perms}
 }
 
 func (f *fakeModule) record(name string) {
@@ -182,5 +185,89 @@ func TestDeclareAndRegisterPropagateErrors(t *testing.T) {
 	}
 	if err := app.Register(nil); err == nil || !strings.Contains(err.Error(), "register-fail") {
 		t.Fatalf("Register 错误未透出: %v", err)
+	}
+}
+
+func TestDisabledModuleExcludedFromLifecycle(t *testing.T) {
+	events := new([]string)
+	a := newFake(events, "a")
+	b := newFake(events, "b", "a")
+	c := newFake(events, "c")
+
+	app, err := New(Options{Name: "demo", Modules: []module.Module{a, b, c}, Disabled: []string{"b"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ids := strings.Join(app.ModuleIDs(), ","); ids != "a,c" {
+		t.Fatalf("禁用模块过滤错误: %s", ids)
+	}
+	if err := app.Declare(nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Register(nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(*events, ","), "b") {
+		t.Fatalf("被禁用模块不应参与生命周期: %v", *events)
+	}
+}
+
+func TestDisabledUnknownModuleRejected(t *testing.T) {
+	app, err := New(Options{Name: "demo", Modules: []module.Module{newFake(new([]string), "a")}, Disabled: []string{"x"}})
+	if err == nil || app != nil {
+		t.Fatalf("禁用未装配模块应失败: app=%v err=%v", app, err)
+	}
+	if !strings.Contains(err.Error(), "未装配") {
+		t.Fatalf("错误信息应说明未装配: %v", err)
+	}
+}
+
+func TestEnabledDependingOnDisabledRejected(t *testing.T) {
+	a := newFake(new([]string), "a", "b")
+	b := newFake(new([]string), "b")
+	_, err := New(Options{Name: "demo", Modules: []module.Module{a, b}, Disabled: []string{"b"}})
+	if err == nil || !strings.Contains(err.Error(), "已禁用") {
+		t.Fatalf("启用模块依赖禁用模块应失败: %v", err)
+	}
+}
+
+type fakeRegistrar struct {
+	pages  []string
+	perms  []string
+	routes []string
+}
+
+func (f *fakeRegistrar) Handle(pattern string, _ http.Handler) error {
+	f.routes = append(f.routes, pattern)
+	return nil
+}
+
+func (f *fakeRegistrar) RegisterPage(p module.PageMeta) error {
+	f.pages = append(f.pages, p.ID)
+	return nil
+}
+
+func (f *fakeRegistrar) RegisterPermission(p module.PermissionMeta) error {
+	f.perms = append(f.perms, p.Code)
+	return nil
+}
+
+func TestRegisterRegistersManifestMetadata(t *testing.T) {
+	a := newFake(new([]string), "a")
+	a.pages = []module.PageMeta{{ID: "p1"}, {ID: "p2"}}
+	a.perms = []module.PermissionMeta{{Code: "c1"}}
+	app, err := New(Options{Name: "demo", Modules: []module.Module{a}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := &fakeRegistrar{}
+	if err := app.Register(reg); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(reg.pages, ",") != "p1,p2" || strings.Join(reg.perms, ",") != "c1" {
+		t.Fatalf("元信息登记错误: pages=%v perms=%v", reg.pages, reg.perms)
 	}
 }

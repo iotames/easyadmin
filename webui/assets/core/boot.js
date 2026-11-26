@@ -1,4 +1,4 @@
-﻿/** 启动流程：主题 → /api/meta → 初始化 / 登录 / 主布局 → 路由。 */
+/** 启动流程：主题 → /api/meta → 初始化 / 登录 / 主布局 → 路由。 */
 import { esc } from './dom.js';
 import { get, post, configure, setCsrfToken } from './api.js';
 import { notify, clearToasts } from './notify.js';
@@ -77,6 +77,19 @@ async function submitLogin(event) {
   }
 }
 
+function renderAuthUnavailable(meta) {
+  authViewActive = true;
+  clearToasts();
+  const app = appEl();
+  const appName = (meta && meta.app && meta.app.name) || 'EasyAdmin';
+  app.innerHTML =
+    '<div class="login-body"><div class="login-card">' +
+    renderBrand(appName) +
+    '<div class="login-title">系统尚未初始化</div>' +
+    '<div class="login-hint">当前版本只交付最小运行骨架，管理员初始化与登录将在 P02 提供。</div>' +
+    '<div class="form-hint" style="margin-top:16px">服务端已正常启动，此页面不是部署故障。</div>' +
+    '</div></div>';
+}
 function renderSetup(meta) {
   authViewActive = true;
   clearToasts();
@@ -228,7 +241,11 @@ export async function boot() {
     return;
   }
   if (meta.initialized === false) {
-    renderSetup(meta);
+    if ((meta.features || {}).auth === false) {
+      renderAuthUnavailable(meta);
+    } else {
+      renderSetup(meta);
+    }
     return;
   }
   if (!meta.user) {
