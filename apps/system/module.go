@@ -79,6 +79,7 @@ func (Module) Manifest() module.Manifest {
 			{ID: "system.roles", Title: "角色管理", Path: "/system/roles", Menu: "系统", Order: 20, Perm: "system.role.read"},
 			{ID: "system.audit", Title: "审计日志", Path: "/system/audit", Menu: "系统", Order: 30, Perm: "system.audit.read"},
 			{ID: "system.config", Title: "配置中心", Path: "/system/config", Menu: "系统", Order: 40, Perm: "system.config.read"},
+			{ID: "profile", Title: "个人资料", Path: "/profile", Order: 99},
 		},
 		Permissions: permissionDefs(),
 	}

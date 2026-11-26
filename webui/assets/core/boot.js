@@ -1,13 +1,14 @@
 /** 启动流程：主题 → /api/meta → 初始化 / 登录 / 主布局 → 路由。 */
 import { esc } from './dom.js';
-import { get, post, configure, setCsrfToken } from './api.js';
+import { get, post, configure, setCsrfToken, exists } from './api.js';
 import { notify, clearToasts } from './notify.js';
 import { store } from './store.js';
 import { createPerm } from './perm.js';
 import { applyTheme, getTheme, bindTheme } from './theme.js';
 import { mountLayout } from './layout.js';
 import { mountMenu } from './menu.js';
-import { createRouter } from './router.js';
+import { createRouter, registerEntries } from './router.js';
+import './pages.js';
 import { initTooltip } from '../components/tooltip.js';
 import { form } from '../components/form.js';
 
@@ -16,6 +17,37 @@ let unreachable = false;
 let layoutHandle = null;
 let routerHandle = null;
 let menuDispose = null;
+let appEntriesLoaded = false;
+
+async function loadAppEntries() {
+  if (appEntriesLoaded) return;
+  if (!(await exists('/assets/app/pages.js'))) {
+    appEntriesLoaded = true;
+    return;
+  }
+  let mod;
+  try {
+    mod = await import('/assets/app/pages.js');
+  } catch (err) {
+    throw new Error('业务页面入口加载失败：' + (err && err.message ? err.message : String(err)));
+  }
+  const map = mod && mod.default ? mod.default : null;
+  if (!map || typeof map !== 'object' || Array.isArray(map)) {
+    throw new Error('业务 pages.js 必须默认导出 Page ID → loader 对象');
+  }
+  registerEntries(map);
+  appEntriesLoaded = true;
+}
+
+async function ensureAppStyle() {
+  if (document.querySelector('link[data-app-style]')) return;
+  if (!(await exists('/assets/app/styles/app.css'))) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/assets/app/styles/app.css';
+  link.setAttribute('data-app-style', '1');
+  document.head.appendChild(link);
+}
 
 function appEl() {
   return document.getElementById('app');
@@ -175,7 +207,7 @@ function handleUnauthorized() {
   renderLogin('会话已失效，请重新登录');
 }
 
-function mountApp(meta) {
+async function mountApp(meta) {
   const app = appEl();
   app.innerHTML = '';
   authViewActive = false;
@@ -193,6 +225,9 @@ function mountApp(meta) {
   menuDispose = mountMenu(layoutHandle.menuHost, meta.menus || [], {
     onNavigate: (path) => { if (routerHandle) routerHandle.navigate(path); },
   });
+
+  await ensureAppStyle();
+  await loadAppEntries();
 
   routerHandle = createRouter({
     layout: layoutHandle,
@@ -252,7 +287,12 @@ export async function boot() {
     renderLogin('');
     return;
   }
-  mountApp(meta);
+  try {
+    await mountApp(meta);
+  } catch (err) {
+    console.error('[easyadmin] 装配管理界面失败', err);
+    renderFatal(err);
+  }
 }
 
 function start() {

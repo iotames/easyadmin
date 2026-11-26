@@ -131,4 +131,20 @@ suite('architecture', () => {
     contains(source, 'onCleanup');
     contains(source, 'registerEntries');
   });
+
+  test('六个页面入口存在且导出 mount/unmount', async () => {
+    const ids = ['dashboard', 'profile', 'system.audit', 'system.config', 'system.roles', 'system.users'];
+    for (const id of ids) {
+      const mod = await import('../assets/pages/' + id.replace(/\./g, '/') + '/index.js');
+      ok(typeof mod.mount === 'function', id + ' 未导出 mount');
+      ok(typeof mod.unmount === 'function', id + ' 未导出 unmount');
+      ok(mod.default && typeof mod.default.mount === 'function', id + ' default 未导出 mount');
+    }
+  });
+
+  test('core/pages.js 注册路径与页面文件一一对应', async () => {
+    const source = await text('../assets/core/pages.js');
+    const ids = ['dashboard', 'profile', 'system.audit', 'system.config', 'system.roles', 'system.users'];
+    ids.forEach((id) => contains(source, "'" + id + "': () => import('../pages/" + id.replace(/\./g, '/') + "/index.js')"));
+  });
 });

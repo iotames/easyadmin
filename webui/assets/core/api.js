@@ -195,6 +195,23 @@ export function get(path, options) {
   return request('GET', path, options);
 }
 
+/**
+ * 探测同源资源是否存在；不存在或网络失败返回 false，不触发全局错误提示。
+ * 仅用于启动期判断业务 pages.js / app.css 是否可加载。
+ */
+export async function exists(path) {
+  try {
+    const response = await fetch((config.baseUrl || '') + path, {
+      method: 'HEAD',
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    return response.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
 export function post(path, body, options) {
   return request('POST', path, Object.assign({}, options, { body }));
 }
@@ -211,5 +228,5 @@ export function del(path, options) {
   return request('DELETE', path, options);
 }
 
-export const api = { get, post, put, patch, del, request, configure, setCsrfToken, getCsrfToken, setUnauthorizedHandler, ApiError };
+export const api = { get, post, put, patch, del, request, exists, configure, setCsrfToken, getCsrfToken, setUnauthorizedHandler, ApiError };
 export default api;

@@ -7,7 +7,7 @@ import { isValidTheme, getTheme } from '../assets/core/theme.js';
 import * as data from '../assets/core/data.js';
 import * as api from '../assets/core/api.js';
 import { flattenMenus, findByPath, firstPagePath } from '../assets/core/menu.js';
-import { parsePath } from '../assets/core/router.js';
+import { parsePath, registerEntries, registeredEntries } from '../assets/core/router.js';
 
 async function withFetch(stub, fn) {
   const original = window.fetch;
@@ -148,5 +148,18 @@ suite('core', () => {
     eq(route.path, '/system/users');
     deepEq(route.query, { page: '2', q: 'x' });
     eq(parsePath('/', '').path, '/');
+  });
+
+  test('core/pages.js 注册六个核心页面入口', async () => {
+    await import('../assets/core/pages.js');
+    deepEq(registeredEntries().sort(), [
+      'dashboard', 'profile', 'system.audit', 'system.config', 'system.roles', 'system.users',
+    ]);
+  });
+
+  test('registerEntries 合并业务页面并拒绝重复 ID', async () => {
+    registerEntries({ 'test.extra': () => Promise.resolve({ mount() {} }) });
+    ok(registeredEntries().indexOf('test.extra') >= 0);
+    await throws(() => registerEntries({ 'test.extra': () => Promise.resolve({ mount() {} }) }));
   });
 });
