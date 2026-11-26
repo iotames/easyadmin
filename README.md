@@ -2,7 +2,7 @@
 
 > 以自研 `easyconf`、`easydb`、`easyserver` 为地基的 Go 中后台框架。把 Web 业务之外的基础设施收敛为一套透明、可组合、可独立演进的公共底座，让业务项目主要关注领域模型、业务规则和业务页面。
 
-当前状态：**总体设计草案已形成，部分基础约束已确认；P0 设计仍为 `PROPOSED`，实施尚未开始**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码；其中任务中心和调度 Store 当前为内存实现。`cmd`、`kernel`、`apps`、`sql` 尚未建立；`webui/` 已按用户授权提前落地前端内核、通用组件、样式令牌和浏览器测试面（见 `docs/WEBUI_ASSET_REVIEW.md`），页面与 P3 验收尚未完成。既有基础设施以实际源码为基线，P0 先核验和补齐，不按空仓库重复建设。此前文档记录 `go test -race ./infra/...` 已通过，但本轮未执行 Go 测试；P0 仍须按当前基线重新执行并留存证据。
+当前状态：**P00 地基已实施并通过验收（2026-11-26）；P01 尚未启动**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码，其中任务中心和调度 Store 当前为内存实现；`cmd/easyadmin` 组合根与 `kernel` 最小 App 生命周期已建立；`apps/`、`sql/` 尚未建立。`webui/` 已按用户授权提前落地前端内核、通用组件、样式令牌和浏览器测试面（见 `docs/WEBUI_ASSET_REVIEW.md`），页面与 P3 验收尚未完成。P00 已在当前基线执行 `go build ./...`、`go vet ./...`、`go test ./...`、`go test -race ./...` 并通过，证据见 `docs/plan/P00_FOUNDATION_DESIGN_PLAN.md` 的验收结论。
 
 已确认：**API 统一使用 `/api/` 前缀，不设路径版本号，接口从首个公开版本起向下兼容，只增不改。**
 
@@ -128,7 +128,12 @@ lib/easyconf、lib/easydb、lib/easyserver 是独立地基库；不反向依赖 
 ## 9. 本地开发
 
 ```bash
+make build  # 构建生产二进制 bin/easyadmin（WebUI 内嵌）
+make test   # go test ./...
+make vet    # go vet ./...
 make lib    # 同步 lib/ 下的 easy 系列依赖到上游最新代码
 ```
+
+启动：`./bin/easyadmin --listen 127.0.0.1:19527`；`--listen` 可省略，默认 127.0.0.1:19527。开发模式用 `make build-dev` 构建，WebUI 直接读磁盘且 `/_test/` 可访问。
 
 `.gitmodules` 声明的库走 `git submodule update --init --remote`（缺失自动克隆，已存在则更新，HEAD 处于 detached 属正常状态）；`lib/` 下未声明的普通仓库走 fetch + 快进同步。任一库有未提交改动会跳过并报错，不会静默覆盖。同步逻辑位于 `scripts/sync-lib.sh`，Makefile 仅保留入口。默认前缀为 `github:iotames`（走 SSH 别名 `github`），可用 `make lib LIB_GIT_PREFIX=git@github.com:iotames` 覆盖。

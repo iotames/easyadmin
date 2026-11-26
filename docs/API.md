@@ -156,6 +156,8 @@
 
 ### `GET /api/meta`
 
+> 实现状态：P00 返回 `app{name,version}`、`initialized=false`、`user=null`、空的 `permissions/menus/features` 与空 `csrf_token`；`app.env`、登录态、权限、菜单和 CSRF 由 P01/P02 按本契约补齐。
+
 返回：
 
 ```json
@@ -432,6 +434,8 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
 }
 ```
 
+> 实现状态：P00 的 `checks` 仅包含 `app`；数据库与结构同步检查随 P01/P02 接入。
+
 ## 15. 错误码规范
 
 格式：`<MODULE>_<RESOURCE>_<REASON>`，全大写，例如：
@@ -453,5 +457,6 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
 | `COMMON_INVALID_ARGUMENT` | 400 | 参数格式、结构或类型错误 |
 | `COMMON_VALIDATION_FAILED` | 422 | 字段或跨字段输入校验失败 |
 | `COMMON_NOT_FOUND` | 404 | 资源不存在 |
+| `COMMON_METHOD_NOT_ALLOWED` | 405 | 请求方法不支持 |
 | `COMMON_INTERNAL` | 500 | 未预期错误 |
 | `COMMON_UNAVAILABLE` | 503 | 依赖不可用 |

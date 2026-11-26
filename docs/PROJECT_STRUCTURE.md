@@ -121,4 +121,4 @@ apps/system/users/
 - `infra/tasks/`（当前为纯内存任务中心）
 - `infra/scheduler/`（当前有 Store 接口和 `MemoryStore`，数据库 Store 未实现）
 
-当前尚不存在的目标目录包括 `cmd/`、`kernel/`、`apps/`、`sql/`。`webui/` 已落地基础资产（core/components/styles/_test），`assets/pages/` 目录已建但尚无页面；前端页面与 P3 验收仍未完成。
+`cmd/easyadmin/`（组合根、最小 HTTP 面）与 `kernel/`（app、module）已建立最小骨架，`internal/archtest/` 提供依赖方向与裸 fetch 守卫。当前尚不存在的目标目录包括 `apps/`、`sql/`、`templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/_test），`assets/pages/` 目录已建但尚无页面；前端页面与 P3 验收仍未完成。
