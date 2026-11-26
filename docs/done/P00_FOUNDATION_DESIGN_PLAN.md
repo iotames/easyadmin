@@ -161,13 +161,16 @@ P0 不新建业务持久化表、不执行 DDL/结构同步、不创建默认管
 | HTTP smoke | `/healthz`、`/readyz`、`/api/meta`、未知 API 404、错误方法 405 | 与 `API.md` 一致 |
 | 架构守卫 | `go test ./internal/archtest` 正反例 | 通过 |
 | 文档一致性 | 相对链接检查 | 0 个断链；7 对计划齐全 |
+| 干净 clone | 从远端克隆 `work/p00-foundation` 并初始化子模块；`go mod verify`、`go build ./...`、`go vet ./...`、`go test -count=1 ./...`、`go test -count=1 -race ./...` | 全部通过 |
+| 浏览器实测 | Edge headless 打开生产构建首页 | 标题 EasyAdmin，`#app` 渲染 1496 字符；console/network 错误为空 |
+| CI | GitHub Actions run 45735594702 | 格式、构建、vet、测试、race 全部 success |
 
 偏差与已知边界：
 
 - P00 只实现统一错误外壳与 400/422/409/403 状态码映射单测；业务字段校验、权限与 CSRF 语义归 P01/P02。
 - `GET /api/meta` 当前是 `API.md` 契约子集（`app.name/version` 与空态字段）；`app.env`、登录态、权限、菜单和 CSRF 由 P01/P02 补齐。
 - 最小 HTTP handler 暂放 `cmd/easyadmin`；P01 建立 `infra/httpapi` 后必须收敛为唯一入口。
-- 未做真实浏览器人工验收：本轮未修改前端资源，静态交付已用 HTTP 验证；P03 页面开发时按 WebUI 强制流程补浏览器验收。
-- 本地 race 需要 CGO；CI（ubuntu）配置了相同命令，首次远端执行结论以 CI 为准。
+- 浏览器验收已补做（2026-11-26，Edge headless）：生产构建首页渲染正常，无控制台与网络错误；未覆盖初始化表单提交，该接口属 P02。
+- 本地 race 需要 CGO；CI（ubuntu）已配置并通过 format/build/vet/test/race，功能分支推送即触发。
 
 **遗留风险**：P01 需完成 cmd HTTP 下沉与 easyserver 适配验证；`infra/logx`、`infra/apperror` 尚未建立，当前启动日志使用标准库 `log`。
