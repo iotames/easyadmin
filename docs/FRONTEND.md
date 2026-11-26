@@ -88,17 +88,17 @@ webui/
 
 Page ID 与目录保持一致（Page ID 即入口键名）：
 
-| Page ID | 前端入口 | 归属阶段 |
+| Page ID | 前端入口 | 状态 |
 |---|---|---|
-| `dashboard` | `assets/pages/dashboard/index.js` | P03 |
-| `profile` | `assets/pages/profile/index.js` | P03 |
-| `system.users` | `assets/pages/system/users/index.js` | P03 |
-| `system.roles` | `assets/pages/system/roles/index.js` | P03 |
-| `system.audit` | `assets/pages/system/audit/index.js` | P03 |
-| `system.config` | `assets/pages/system/config/index.js` | P03（只读） |
-| `system.logs` | `assets/pages/system/logs/index.js` | P04 |
-| `system.tasks` | `assets/pages/system/tasks/index.js` | P04 |
-| `system.schedules` | `assets/pages/system/schedules/index.js` | P04 |
+| `dashboard` | `assets/pages/dashboard/index.js` | P03 已交付 |
+| `profile` | `assets/pages/profile/index.js` | P03 已交付 |
+| `system.users` | `assets/pages/system/users/index.js` | P03 已交付 |
+| `system.roles` | `assets/pages/system/roles/index.js` | P03 已交付 |
+| `system.audit` | `assets/pages/system/audit/index.js` | P03 已交付 |
+| `system.config` | `assets/pages/system/config/index.js` | P03 已交付（只读） |
+| `system.logs` | `assets/pages/system/logs/index.js` | P04 未交付 |
+| `system.tasks` | `assets/pages/system/tasks/index.js` | P04 未交付 |
+| `system.schedules` | `assets/pages/system/schedules/index.js` | P04 未交付 |
 
 Page ID 与路径、菜单、权限的对应关系以 `docs/plan/P03_WEBUI_DESIGN_PLAN.md` §5.3 为准；未到归属阶段的页面不得提前登记 entry。
 

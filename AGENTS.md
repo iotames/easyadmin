@@ -8,7 +8,7 @@
 
 EasyAdmin 是基于自研 easy 系列的 Go 中后台框架，强调显式装配、SQL-first、原生 ESM、单二进制交付和统一入口。
 
-当前状态：**P00、P01、P02 已实施、验收并归档（2026-11-26）；P03-P06 未开工**。已建立 `cmd/easyadmin` 组合根、`kernel` App 生命周期、WebUI 双模式资源交付、`infra/logx`、`infra/apperror`、`infra/httpapi`、`infra/auth`、`infra/audit`、`sql/` 与 `apps/system`。进入下一期或初始化业务数据表仍须用户明确确认；验证原型不得冒充正式实现。
+当前状态：**P00–P03 已实施并完成验收（2026-11-26），P00–P02 已归档；P04–P06 未开工**。已建立 `cmd/easyadmin` 组合根、`kernel` App 生命周期、WebUI 双模式资源交付（含 `AppAssets` 业务资源接缝）、`infra/logx`、`infra/apperror`、`infra/httpapi`、`infra/auth`、`infra/audit`、`sql/` 与 `apps/system`；六个核心页面（Dashboard、个人资料、用户、角色、审计、配置只读）已交付。进入下一期或初始化业务数据表仍须用户明确确认；验证原型不得冒充正式实现。
 
 已确认约束：**API 统一使用 `/api/`，不设 `/v1`、`/v2` 路径版本；接口向下兼容，只增不改。**
 

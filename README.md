@@ -2,7 +2,7 @@
 
 > 以自研 `easyconf`、`easydb`、`easyserver` 为地基的 Go 中后台框架。把 Web 业务之外的基础设施收敛为一套透明、可组合、可独立演进的公共底座，让业务项目主要关注领域模型、业务规则和业务页面。
 
-当前状态：**P00、P01、P02 已实施、验收并归档（2026-11-26）；P03-P06 未开工**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码，其中任务中心和调度 Store 当前为内存实现；`cmd/easyadmin` 组合根、`kernel` App 生命周期、`infra/logx`、`infra/apperror`、`infra/httpapi`、`infra/auth`、`infra/audit`、`sql/` 与 `apps/system` 已建立。`webui/` 已落地前端内核、通用组件、样式令牌和浏览器测试面，业务页面与 P03 验收尚未完成。P00-P02 均通过 `go build ./...`、`go vet ./...`、`go test ./...`，P02 另通过关键包 race 测试；验收证据见 `docs/done/` 对应设计计划。
+当前状态：**P00–P03 已实施并完成验收（2026-11-26），P00–P02 已归档；P04–P06 未开工**。仓库已有 `infra/conf`、`infra/db`、`infra/tasks`、`infra/scheduler`、`infra/credential` 等代码，其中任务中心和调度 Store 当前为内存实现；`cmd/easyadmin` 组合根、`kernel` App 生命周期、`infra/logx`、`infra/apperror`、`infra/httpapi`、`infra/auth`、`infra/audit`、`sql/` 与 `apps/system` 已建立。`webui/` 已落地前端内核、通用组件、样式令牌、浏览器测试面和六个核心页面。P00–P03 均通过 `go build ./...`、`go vet ./...`、`go test ./...`，P02/P03 另通过关键包 race 与浏览器测试面；验收证据见 `docs/done/` 对应设计计划与 `docs/plan/P03_WEBUI_DESIGN_PLAN.md` 第 12 节。
 
 已确认：**API 统一使用 `/api/` 前缀，不设路径版本号，接口从首个公开版本起向下兼容，只增不改。**
 
@@ -73,22 +73,22 @@ export default {
 
 组合根使用 `easyadmin.New()`、`Use(...)`、`WithWebAssets(...)`、`Run(ctx)` 装配；P05 前请按 2.3 的当前边界手工装配。
 
-### 2.3 当前阶段（P00-P02）接入边界
+### 2.3 当前阶段（P00-P03）接入边界
 
-截至 P02 已可用：框架自身启动、初始化/登录、用户/角色/权限/审计 API、核心表结构同步、WebUI 内核与登录流程。
+截至 P03 已可用：框架自身启动、初始化/登录、用户/角色/权限/审计 API、核心表结构同步、WebUI 内核与登录流程、六个核心页面（Dashboard、个人资料、用户、角色、审计、配置只读），以及 `httpapi.HandlerOptions.AppAssets` 的业务前端资源挂载与 `/assets/app/pages.js` 合并接缝。
 
 尚未交付：
 
 - `easyadmin new/module add`、`templates/app`、`examples/biz`；
-- 业务 `/assets/app/pages.js` 合并、`AppAssets` 挂载、业务页面实际渲染；
-- P03 的 Dashboard、用户、角色、审计、个人资料与配置（只读）页面。
+- 配置在线写入（P03 只交付只读 `GET /api/system/config`）；
+- P04 的日志、任务、调度页面。
 
 因此当前若要接入业务：
 
 1. 在业务仓库 `go.mod` require `github.com/iotames/easyadmin`；
 2. 自建 `cmd/<app>/main.go`，按顺序装配 `infra/conf`、`infra/db`、`apps/system`、`kernel/app`、`infra/httpapi`；
 3. 业务模块放业务仓库 `apps/<domain>/`，不要放进 EasyAdmin 仓库；
-4. 业务前端页面需等 P03/P05 的扩展接缝；在接缝交付前不具备“零改框架源码”的业务页面接入能力。
+4. 业务前端页面可经业务 `webui.Assets` + `httpapi.HandlerOptions.AppAssets` 挂载到 `/assets/app/` 接入；脚手架与自动化升级仍待 P05，框架升级前须自行保证 Page ID 唯一。
 
 完整缺口清单（G1-G8）、影响与关闭阶段见 [docs/SCAFFOLD_AND_UPGRADE.md](docs/SCAFFOLD_AND_UPGRADE.md) 第 8 节。
 
@@ -169,7 +169,7 @@ lib/easyconf、lib/easydb、lib/easyserver 是独立地基库；不反向依赖 
 | P5 | CLI 与模块生态 | 项目模板、模块生成、Provider/Adapter、示例 | v0.5 |
 | P6 | 稳定与正式发行 | 安全、性能、兼容、升级、发布与真实项目验证 | v1.0 |
 
-每期严格配对：`<项目>_DESIGN_PLAN.md` 负责设计与验收边界，`<项目>_IMPL_PLAN.md` 负责文件级实施步骤、测试、风险和回退；两份文件位于 `docs/plan/` 根部，执行期 `STEPn_*.md` 放同名项目子目录。P00-P02 已完成并归档到 `docs/done/`，计划目录当前 P03-P06 共 4 对 8 份，见 [docs/plan/README.md](docs/plan/README.md)。
+每期严格配对：`<项目>_DESIGN_PLAN.md` 负责设计与验收边界，`<项目>_IMPL_PLAN.md` 负责文件级实施步骤、测试、风险和回退；两份文件位于 `docs/plan/` 根部，执行期 `STEPn_*.md` 放同名项目子目录。P00-P02 已完成并归档到 `docs/done/`，P03 已验收待归档，计划目录当前 P04-P06 共 3 对 6 份，见 [docs/plan/README.md](docs/plan/README.md)。
 
 ## 7. 文档索引
 

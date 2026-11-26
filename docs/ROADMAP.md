@@ -1,6 +1,6 @@
 # EasyAdmin 七期建设路线图
 
-> 状态：P00、P01、P02 已实施、验收并归档（2026-11-26）；P03-P06 未批准、未开工。每期在计划目录根部配对 `<项目>_DESIGN_PLAN.md` 与 `<项目>_IMPL_PLAN.md`，已完成项目归档到 `docs/done/`。计划治理以 `docs/plan/README.md` 为唯一权威。
+> 状态：P00、P01、P02 已实施、验收并归档（2026-11-26）；P03 已实施并完成验收（2026-11-26，待归档）；P04-P06 未批准、未开工。每期在计划目录根部配对 `<项目>_DESIGN_PLAN.md` 与 `<项目>_IMPL_PLAN.md`，已完成项目归档到 `docs/done/`。计划治理以 `docs/plan/README.md` 为唯一权威。
 
 ## 1. 总体策略
 
@@ -254,14 +254,14 @@ OIDC/LDAP、多租户、分布式会话、复杂策略引擎和外部 API Token 
 
 ## 12. 计划文件
 
-计划目录遵循 `docs/plan/README.md`：在进行的项目把 `<项目>_DESIGN_PLAN.md` 与 `<项目>_IMPL_PLAN.md` 成对放在 `docs/plan/` 根部（当前 P03-P06 共 4 对、8 份）；开工后执行明细 `STEPn_*.md` 放入同名项目子目录。已完成项目按宪法归档到 `docs/done/`，执行期文档不留在计划目录。
+计划目录遵循 `docs/plan/README.md`：在进行的项目把 `<项目>_DESIGN_PLAN.md` 与 `<项目>_IMPL_PLAN.md` 成对放在 `docs/plan/` 根部（当前 P04-P06 共 3 对、6 份）；开工后执行明细 `STEPn_*.md` 放入同名项目子目录。已完成项目按宪法归档到 `docs/done/`，执行期文档不留在计划目录。
 
 | 阶段 | 设计计划 | 实施计划 |
 |---|---|---|
 | P00 | `docs/done/P00_FOUNDATION_DESIGN_PLAN.md`（已归档） | — |
 | P01 | `docs/done/P01_RUNTIME_DESIGN_PLAN.md`（已归档） | — |
 | P02 | `docs/done/P02_DATA_IDENTITY_DESIGN_PLAN.md`（已归档） | — |
-| P03 | `docs/plan/P03_WEBUI_DESIGN_PLAN.md` | `docs/plan/P03_WEBUI_IMPL_PLAN.md` |
+| P03 | `docs/plan/P03_WEBUI_DESIGN_PLAN.md`（已验收，待归档） | `docs/plan/P03_WEBUI_IMPL_PLAN.md` |
 | P04 | `docs/plan/P04_OPERATIONS_DESIGN_PLAN.md` | `docs/plan/P04_OPERATIONS_IMPL_PLAN.md` |
 | P05 | `docs/plan/P05_CLI_ECOSYSTEM_DESIGN_PLAN.md` | `docs/plan/P05_CLI_ECOSYSTEM_IMPL_PLAN.md` |
 | P06 | `docs/plan/P06_STABILITY_RELEASE_DESIGN_PLAN.md` | `docs/plan/P06_STABILITY_RELEASE_IMPL_PLAN.md` |

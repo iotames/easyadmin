@@ -307,22 +307,22 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
 | GET | /api/system/config | 分组列出已注册的 Bootstrap Config 元数据 |
 | PUT | /api/system/config/{key} | 修改显式允许写入、且持久化来源可控的单个启动配置项 |
 
-配置项对象：
+P03 响应：`{ok:true,data:{items:[...]},meta}`。配置项对象：
 
 ~~~json
 {
-  "key": "APP_LISTEN_ADDR",
-  "title": "HTTP 监听地址",
+  "group": "应用",
+  "order": 10,
+  "key": "EASYADMIN_LISTEN",
+  "title": "监听地址",
   "type": "string",
-  "value": ":19527",
-  "default": ":19527",
-  "source": "file",
-  "hot_reload": "restart",
+  "default": "127.0.0.1:19527",
+  "value": "127.0.0.1:19527",
+  "source": "default",
   "secret": false,
-  "writable": true,
-  "persisted": true,
-  "restart_required": false,
-  "group": "应用"
+  "hot_reload": "restart",
+  "writable": false,
+  "example": "127.0.0.1:19527"
 }
 ~~~
 
@@ -330,10 +330,10 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
 
 规则：
 
-- source 至少区分 default、file、environment、command_line；容器平台注入值按 environment 来源处理。
+- source 至少区分 default、file、environment、command_line，按优先级从低到高；容器平台注入值按 environment 来源处理。file 仅在有效值与默认值不同时成立——底层配置库会把默认值写入 `.env`，全等时仍视为 default。
 - writable=true 仅适用于应用明确管理的可写配置文件来源，且必须采用原子写入和并发冲突保护；默认值快照 default.env 不得当作用户配置写回目标。
 - 当前值由环境变量或命令行提供时，.env 写回不会覆盖实际生效值；此类项必须拒绝写入并返回 SYSTEM_CONFIG_READONLY（409）。
-- 密钥类只返回 configured/masked 状态，不回显原文；密钥值默认不可读、不可写。
+- 敏感项（secret=true）返回 `value=""`，仅以 `configured` 表示是否已配置，不回显原文；P03 全部配置项 `writable=false`。
 - 仅内存 Manager.Set 不等于持久化。实现必须由配置适配层提供安全写入与来源核验；不能将 Set 成功描述为持久化成功。
 - 配置修改必须审计；持久化失败不得伪装成功。Runtime Settings、sys_setting 和数据库覆盖优先级不属于 v0.x。
 

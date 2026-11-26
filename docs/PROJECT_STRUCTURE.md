@@ -128,4 +128,4 @@ apps/system/users/
 - `sql/`（内嵌 SQL 结构脚本与 db.SQLSource）
 - `apps/system/`（内置用户、角色、权限、会话与审计）
 
-`cmd/easyadmin/`（组合根、用 infra/httpapi 组装 HTTP 面）与 `kernel/`（app、module）已建立最小骨架；P01 新增 `infra/logx`、`infra/apperror`、`infra/httpapi` 与最小内置模块 `apps/console`；P02 新增 `infra/auth`、`infra/audit`、`sql/` 与 `apps/system`。`internal/archtest/` 提供依赖方向与裸 fetch 守卫。当前尚不存在的目标目录包括 `templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/_test），`assets/pages/` 目录已建但尚无页面；前端页面与 P03 验收仍未完成。
+`cmd/easyadmin/`（组合根、用 infra/httpapi 组装 HTTP 面）与 `kernel/`（app、module）已建立最小骨架；P01 新增 `infra/logx`、`infra/apperror`、`infra/httpapi` 与最小内置模块 `apps/console`；P02 新增 `infra/auth`、`infra/audit`、`sql/` 与 `apps/system`；P03 新增 `webui/assets/core/pages.js` 核心页面注册、`webui/assets/pages/` 六个核心页面与 `httpapi.HandlerOptions.AppAssets` 业务资源接缝。`internal/archtest/` 提供依赖方向、裸 fetch 与 Manifest 页面一致性守卫。当前尚不存在的目标目录包括 `templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/pages/_test），页面按需动态加载。

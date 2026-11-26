@@ -22,7 +22,7 @@
 | 4 | P03/STEP4_CORE_WIRING.md | 前端内核页面注册与启动接线 | — | 已实施 |
 | 5 | P03/STEP5_PAGES.md | 六个核心页面 | 2,3,4 | 已实施 |
 | 6 | P03/STEP6_TESTS.md | Go 与浏览器测试补齐 | 5 | 已实施 |
-| 7 | P03/STEP7_DOCS_BUILD.md | 文档同步与双模式构建 | 6 | 待实施 |
+| 7 | P03/STEP7_DOCS_BUILD.md | 文档同步与双模式构建 | 6 | 已实施 |
 | 8 | P03/STEP8_ACCEPT.md | 浏览器实测、验收回写、提交推送 | 7 | 待实施 |
 
 ## §2 执行期红线
@@ -40,3 +40,4 @@
 | 2026-11-26 | 智能体 | STEP2 | 已实施：配置元数据、来源判定、GET /api/system/config、敏感遮蔽；全量测试通过 |
 | 2026-11-26 | 智能体 | STEP3 | 已实施：AppAssets 挂载 /assets/app/，未配置保持 404；全量测试通过 |
 | 2026-11-26 | 智能体 | STEP4-6 | 已实施：内核页面注册、业务 entries 合并、六个页面、Go 与浏览器测试；浏览器 51/51 全绿 |
+| 2026-11-26 | 智能体 | STEP7 | 已实施：README/AGENTS/ROADMAP/FRONTEND/API/COMPONENTS/PROJECT_STRUCTURE 同步；dev 与生产构建通过，生产 _test 为 404 |
