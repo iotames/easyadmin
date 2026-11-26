@@ -100,7 +100,7 @@ Page ID 与目录保持一致（Page ID 即入口键名）：
 | `system.tasks` | `assets/pages/system/tasks/index.js` | P04 未交付 |
 | `system.schedules` | `assets/pages/system/schedules/index.js` | P04 未交付 |
 
-Page ID 与路径、菜单、权限的对应关系以 `docs/plan/P03_WEBUI_DESIGN_PLAN.md` §5.3 为准；未到归属阶段的页面不得提前登记 entry。
+Page ID 与页面文件一一对应，路径、菜单与权限来自服务端 Manifest；未到归属阶段的页面不得提前登记 entry。
 
 ## 3. 启动流程
 
