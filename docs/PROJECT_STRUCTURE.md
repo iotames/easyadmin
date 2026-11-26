@@ -7,6 +7,8 @@
 easyadmin/
 ├── cmd/
 │   └── easyadmin/                 # 唯一组合根、CLI 和启动参数
+├── internal/
+│   └── archtest/                  # 架构守卫：依赖方向与裸 fetch 静态检查
 ├── kernel/                        # App、Module 契约、注册表、生命周期
 │   ├── app/
 │   ├── module/
@@ -98,7 +100,7 @@ apps/system/users/
 - `apps` 可独立关闭；跨 app 使用窄接口/组合根注入。
 - `webui/assets/core` 只放前端框架能力；`components` 不知道业务 API；`pages` 放按路由动态加载的页面。
 - 核心系统 SQL 与 app SQL 分开；app 删除时不遗留不可归属脚本。
-- `internal/` 用于真正私有实现；需要被业务项目导入的包必须明确为公开 API。
+- `internal/` 用于真正私有实现与不依赖业务清单的架构守卫；需要被业务项目导入的包必须明确为公开 API。跨模块契约测试放唯一能看见全部模块的组合根 `cmd/easyadmin`，并复用生产装配清单，不在测试里另写一份。
 - 业务项目通过 `go.mod` 依赖版本化 EasyAdmin，不复制 `kernel`、`infra` 和内置 `apps`；生成与升级机制见 `SCAFFOLD_AND_UPGRADE.md`。
 
 ## 4. 运行目录和交付
@@ -128,4 +130,4 @@ apps/system/users/
 - `sql/`（内嵌 SQL 结构脚本与 db.SQLSource）
 - `apps/system/`（内置用户、角色、权限、会话与审计）
 
-`cmd/easyadmin/`（组合根、用 infra/httpapi 组装 HTTP 面）与 `kernel/`（app、module）已建立最小骨架；P01 新增 `infra/logx`、`infra/apperror`、`infra/httpapi` 与最小内置模块 `apps/console`；P02 新增 `infra/auth`、`infra/audit`、`sql/` 与 `apps/system`；P03 新增 `webui/assets/core/pages.js` 核心页面注册、`webui/assets/pages/` 六个核心页面与 `httpapi.HandlerOptions.AppAssets` 业务资源接缝。`internal/archtest/` 提供依赖方向、裸 fetch 与 Manifest 页面一致性守卫。当前尚不存在的目标目录包括 `templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/pages/_test），页面按需动态加载。
+`cmd/easyadmin/`（组合根、用 infra/httpapi 组装 HTTP 面）与 `kernel/`（app、module）已建立最小骨架；P01 新增 `infra/logx`、`infra/apperror`、`infra/httpapi` 与最小内置模块 `apps/console`；P02 新增 `infra/auth`、`infra/audit`、`sql/` 与 `apps/system`；P03 新增 `webui/assets/core/pages.js` 核心页面注册、`webui/assets/pages/` 六个核心页面与 `httpapi.HandlerOptions.AppAssets` 业务资源接缝。`internal/archtest/` 提供依赖方向与裸 fetch 守卫；Manifest 与 `core/pages.js` 的双向一致性测试位于组合根 `cmd/easyadmin`，复用 `builtinModules` 的同一模块清单。当前尚不存在的目标目录包括 `templates/`、`examples/`。`webui/` 已落地基础资产（core/components/styles/pages/_test），页面按需动态加载。

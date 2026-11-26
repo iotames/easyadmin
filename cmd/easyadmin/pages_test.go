@@ -1,28 +1,49 @@
-package archtest
+package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/iotames/easyadmin/apps/console"
+	_ "modernc.org/sqlite"
+
 	"github.com/iotames/easyadmin/apps/system"
-	"github.com/iotames/easyadmin/kernel/module"
+	"github.com/iotames/easyadmin/infra/db"
+	"github.com/iotames/easyadmin/infra/httpapi"
 )
 
 var pageEntryPattern = regexp.MustCompile(`(?m)^\s*'([^']+)'\s*:\s*\(\)\s*=>\s*import\(`)
 
-// manifestPageIDs 返回内置模块 Manifest 声明的 Page ID（去重后排序）。
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	out, err := exec.Command("go", "env", "GOMOD").Output()
+	if err != nil {
+		t.Fatalf("go env GOMOD 失败: %v", err)
+	}
+	mod := strings.TrimSpace(string(out))
+	if mod == "" {
+		t.Fatal("未找到当前模块的 go.mod")
+	}
+	return filepath.Dir(mod)
+}
+
+// manifestPageIDs 复用组合根的模块清单，避免测试另写一份模块列表。
 func manifestPageIDs(t *testing.T) []string {
 	t.Helper()
-	manifests := []module.Manifest{console.New().Manifest(), system.Module{}.Manifest()}
+	database, err := db.Open("sqlite", filepath.Join(t.TempDir(), "pages.db"), system.CoreSource())
+	if err != nil {
+		t.Fatalf("打开测试数据库失败: %v", err)
+	}
+	defer database.Close()
+
 	seen := map[string]bool{}
 	var ids []string
-	for _, mf := range manifests {
-		for _, page := range mf.Pages {
+	for _, m := range builtinModules(system.New(database, httpapi.NewCatalog())) {
+		for _, page := range m.Manifest().Pages {
 			if page.ID == "" {
 				continue
 			}
@@ -40,8 +61,7 @@ func manifestPageIDs(t *testing.T) []string {
 // coreEntryIDs 从 core/pages.js 静态提取注册的 Page ID。
 func coreEntryIDs(t *testing.T) []string {
 	t.Helper()
-	root := moduleRoot(t)
-	src, err := os.ReadFile(filepath.Join(root, "webui", "assets", "core", "pages.js"))
+	src, err := os.ReadFile(filepath.Join(repoRoot(t), "webui", "assets", "core", "pages.js"))
 	if err != nil {
 		t.Fatalf("读取 core/pages.js 失败: %v", err)
 	}
@@ -83,17 +103,14 @@ func diffPageIDs(manifest, entries []string) []string {
 }
 
 func TestManifestAndCorePagesMatch(t *testing.T) {
-	manifest := manifestPageIDs(t)
-	entries := coreEntryIDs(t)
-	if problems := diffPageIDs(manifest, entries); len(problems) > 0 {
+	if problems := diffPageIDs(manifestPageIDs(t), coreEntryIDs(t)); len(problems) > 0 {
 		t.Fatalf("页面 ID 双向一致性失败:\n%s", strings.Join(problems, "\n"))
 	}
 }
 
 func TestPageSetDiffDetectsMissingAndExtra(t *testing.T) {
-	problems := diffPageIDs([]string{"a", "b"}, []string{"b", "c"})
-	joined := strings.Join(problems, "\n")
+	joined := strings.Join(diffPageIDs([]string{"a", "b"}, []string{"b", "c"}), "\n")
 	if !strings.Contains(joined, "前端缺少入口: a") || !strings.Contains(joined, "Manifest 未声明页面: c") {
-		t.Fatalf("差异检测不完整: %v", problems)
+		t.Fatalf("差异检测不完整: %s", joined)
 	}
 }

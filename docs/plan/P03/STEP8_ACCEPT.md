@@ -46,4 +46,5 @@
 - 验收发现页头动作按钮无响应：`setActions` 渲染在 `#page-head`，页面 `bindActions(ctx.el)` 只覆盖 `#page-body`。新增 `ctx.bindActions` 同时绑定两处，用户/角色页切换调用。
 - 验收发现 `ctx.api` 缺 `put/patch/del`：boot 原只注入 `{get, post}`，改为注入完整 `api` 对象。
 - SQLite 在多个写请求真正并发时会返回 500；验收脚本的等待条件误判“禁用/启用”按钮文案，导致三个写请求并发复现一次。修正脚本串行节奏后稳定，已记入设计文档已知边界。
+- 验收后质量修复：页面一致性测试从 `internal/archtest` 迁至组合根 `cmd/easyadmin`，复用 `builtinModules`，消除测试内复制的模块清单。
 - 归档（迁 `docs/done/`、清理执行期文档）未执行，待用户确认。

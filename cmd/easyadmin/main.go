@@ -57,6 +57,12 @@ func sqliteDSN(cfg *conf.Config) (string, error) {
 	return dsn + "?_pragma=foreign_keys(1)", nil
 }
 
+// builtinModules 返回内置模块清单。组合根装配与跨模块契约测试共用同一来源，
+// 避免测试另写一份模块列表后与生产装配漂移。
+func builtinModules(sysModule *system.Module) []module.Module {
+	return []module.Module{console.New(), sysModule}
+}
+
 func run(args []string) error {
 	manager, err := conf.Load(args)
 	if err != nil {
@@ -84,7 +90,7 @@ func run(args []string) error {
 	router := httpapi.NewRouter()
 	catalog := httpapi.NewCatalog()
 	sysModule := system.New(database, catalog, system.WithConfig(manager))
-	modules := []module.Module{console.New(), sysModule}
+	modules := builtinModules(sysModule)
 
 	runtime, err := kernelapp.New(kernelapp.Options{Name: "easyadmin", Version: version, Modules: modules})
 	if err != nil {

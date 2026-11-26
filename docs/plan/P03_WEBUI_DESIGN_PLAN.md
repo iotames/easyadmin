@@ -179,6 +179,7 @@ P03 不新增业务持久化表。唯一持久化影响是 `sys_permission` 的�
 
 1. 页头动作按钮无响应：`ctx.setActions` 渲染在 `#page-head`，页面却用 `bindActions(ctx.el, ...)` 只监听 `#page-body`。修复为 `ctx.bindActions(map)` 同时绑定页头与页面主体，用户/角色页改用该入口。
 2. 前端 `ctx.api` 只注入 `{get, post}`，页面调用 `put` 时报 `ctx.api.put is not a function`。修复为 boot 注入完整 `api` 对象。
+3. 验收后质量修复：Manifest 与 `core/pages.js` 一致性测试原放在 `internal/archtest`，并在测试内复制了一份模块清单（`console.New()`、`system.Module{}`），新增模块时守卫会静默假绿。已迁至组合根 `cmd/easyadmin/pages_test.go`，复用 `builtinModules` 的同一装配清单；`internal/archtest` 只保留不依赖业务清单的依赖方向与裸 fetch 检查。
 
 ### 13.3 已知边界
 
