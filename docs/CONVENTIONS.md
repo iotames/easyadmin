@@ -48,7 +48,7 @@ webui → 同源 /api 契约
 
 - Go package 使用短小、小写、单一职责名称；避免万能 `common`、`utils`、`manager` 包。
 - 目录命名遵循 `DECISIONS.md` D18：顶层用 `cmd`、`kernel`、`infra`、`apps`、`webui`、`sql`、`templates`、`examples`、`lib`、`docs`；能力包用 `conf`、`logx`、`db`、`httpapi`、`apperror`、`auth`、`audit`、`tasks`、`scheduler`、`storage`。
-- 模块 ID 使用小写点分：`system.users`、`system.roles`、`system.config`。
+- 模块 ID 使用短小写单词：`system`、`console`；Page ID 使用小写点分且全局唯一：`dashboard`、`profile`、`system.users`、`system.config`。模块 ID 与 Page ID 不得混用。
 - 权限码使用小写点分：`system.user.read`、`system.user.write`。
 - 环境配置键使用大写下划线；内部配置 catalog key 可使用模块命名空间。
 - API JSON 字段使用 `snake_case`；Go 字段使用惯用 MixedCaps。

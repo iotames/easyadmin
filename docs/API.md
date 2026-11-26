@@ -300,6 +300,8 @@
 
 v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Runtime Settings。GET 读取已注册启动配置的安全元数据；PUT 只允许显式声明可写、且当前来源具备受支持持久化路径的配置项。环境变量、命令行、容器注入和 immutable 配置不能通过写 .env 伪装成已持久化。
 
+> 阶段归属：P03 只交付 `GET /api/system/config`（只读，`writable` 恒为 `false`）；`PUT /api/system/config/{key}` 依赖原子写入、来源核验与审计契约，单独评审后再实现，当前不对外承诺。
+
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | /api/system/config | 分组列出已注册的 Bootstrap Config 元数据 |

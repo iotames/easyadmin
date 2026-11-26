@@ -13,6 +13,7 @@
 - CLI new/module add/dev/build/doctor/version。
 - `templates/app` 脚手架与唯一的 `examples/biz` 业务示例；不保留 `examples/minimal`。
 - 模块骨架生成、Manifest/页面入口/SQL/测试同步校验。
+- 内置模块页面禁用/替换的最小选项契约，避免业务为单个页面替换整模块。
 - Provider/Adapter 最小契约与兼容测试。
 - 模块开发指南、独立升级边界和发行资产。
 
@@ -33,6 +34,28 @@
 
 模板文件树、`easyadmin new` 流程和独立升级机制见 `docs/SCAFFOLD_AND_UPGRADE.md`。
 
+### 4.1 缺口与公共装配接口计划（本期冻结）
+
+P05 必须导出业务项目可用的公共装配面，业务 `cmd` 不得复制框架私有适配器：
+
+| 接口 | 归属/形式 | 说明 |
+|---|---|---|
+| `easyadmin.New()` | 仓库根包 | 高层门面，返回 App；业务项目通过它完成装配 |
+| `App.Use(modules ...module.Module)` | 根包 | 显式登记业务模块和内置模块 |
+| `App.WithWebAssets(fs.FS)` | 根包 | 挂载业务 `/assets/app/`，与 core `/assets/` 合并 |
+| `App.Run(ctx) error` | 根包 | 统一监听、生命周期与优雅停机 |
+| `httpapi.NewRegistrar(*Router, *Catalog) module.Registrar` | `infra/httpapi` | 低层逃生口；导出后自定义 `cmd` 不再复制 Registrar 桥接器 |
+| `webui.Assets` | 业务项目 | 业务 `webui/embed.go` 导出，只含 `pages.js` 与业务 assets |
+
+约束：
+
+- 根门面只做装配，不承载业务规则；kernel 不反向依赖根包。
+- 业务扩展一律走 `Use`、`WithWebAssets` 或追加注册；不支持 `.so`、运行期目录扫描、覆盖 core 文件。
+- `module add` 生成的 `webui/pages.js` 必须与 Manifest Page ID 一致；重复 Page ID 启动失败。
+- 内置 app 若提供页面禁用或替换能力，必须通过构造函数选项或独立窄接口暴露，禁止业务侧直接修改内置模块源码。
+
+完整缺口清单与阶段归属见 `docs/SCAFFOLD_AND_UPGRADE.md` §8：本期负责 G3-G6；G1、G2、G7 由 P03 建立接缝，G8 由 P06 验证。
+
 设计必须服从 `docs/ARCHITECTURE.md`、`docs/DECISIONS.md`、`docs/CONVENTIONS.md` 和 `docs/SCAFFOLD_AND_UPGRADE.md`。若本期需要改变其中任一正式边界，必须先提交 ADR/决策修订，不可在实施计划中暗改。
 
 ## 5. 交付与影响面
@@ -41,12 +64,16 @@
 - `templates/embed.go`、`templates/app/`、`examples/biz/`。
 - `module` 开发工具、manifest lint 和模板测试。
 - Provider 示例包和兼容性测试。
+- 仓库根包 `easyadmin` 装配门面与 `httpapi.NewRegistrar` 低层适配器。
 
 ## 6. 验收标准
 
 - clean dir 执行 new 后可构建、启动、登录。
 - module add 生成后可通过静态检查、测试和构建。
 - 模块 manifest 与 API/菜单/权限/ESM/SQL 目录一致。
+- 生成项目含一个业务页面时，`/assets/app/pages.js` 可加载，core 资源未被复制或改写。
+- 业务 `cmd` 只使用公开门面和公开包；删除框架内私有 Registrar 桥接器后仍可构建。
+- 内置模块页面禁用或替换可通过公开选项完成，有测试且不改 core。
 - Provider 缺失/重复/不兼容时明确失败。
 
 每项验收都必须对应可执行测试、命令、浏览器操作或源码核验记录。截图不能替代功能测试。

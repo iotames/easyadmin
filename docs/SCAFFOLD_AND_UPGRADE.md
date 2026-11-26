@@ -123,27 +123,13 @@ import (
     "log"
 
     "github.com/iotames/easyadmin"
-    "github.com/iotames/easyadmin/apps/dashboard"
-    "github.com/iotames/easyadmin/apps/profile"
-    "github.com/iotames/easyadmin/apps/system"
+    "{{.ModulePath}}/apps/orders"
     projectweb "{{.ModulePath}}/webui"
 )
 
 func main() {
-    app := easyadmin.New()
-    app.Use(
-        dashboard.Module{},
-        system.Users{},
-        system.Roles{},
-        system.Config{},
-        system.Logs{},
-        system.Audit{},
-        system.Tasks{},
-        system.Schedules{},
-        system.Files{},
-        system.Info{},
-        profile.Module{},
-    )
+    app := easyadmin.New()  // 框架默认装配内置模块与页面（控制台、用户、角色、审计、配置、个人资料）
+    app.Use(orders.New())   // 业务模块按域组织，显式登记，不按页面拆模块
     app.WithWebAssets(projectweb.Assets)  // 业务页面与样式
     if err := app.Run(context.Background()); err != nil {
         log.Fatal(err)
@@ -313,3 +299,20 @@ CLI 版本也要对齐：
 升级检查顺序：读变更说明 → 更新 `go.mod` → 启动应用完成 `core` 结构同步 → 跑测试和 `doctor` → 灰度验证业务页面。业务结构脚本、业务页面和业务配置不在升级中自动改写。
 
 这套流程的核心约束只有一句：**业务项目可以依赖 EasyAdmin，但不能拥有一份分叉的 EasyAdmin。**
+
+## 8. 当前缺口与关闭计划
+
+> 状态：截至 P02 的真实缺口；P03-P06 尚未开工。关闭阶段以 `docs/ROADMAP.md` 和各期 DESIGN_PLAN 为准。
+
+| ID | 缺口 | 当前影响 | 关闭阶段 | 验收证据 |
+|---|---|---|---|---|
+| G1 | 业务页面入口合并 | 业务页面无法零改框架接入 | P03 接缝、P05 生成器 | `/assets/app/pages.js` 缺失/合并/重复 ID 测试；生成项目页面可加载 |
+| G2 | 业务资源与样式挂载 | 无法同时提供 core 与 `/assets/app/` | P03 | `AppAssets` 未配置/配置两条路径；core 资源不被改写 |
+| G3 | 公共装配门面 | 业务 `cmd` 需手工组装 | P05 | 生成项目 `cmd` 只 import 公开包并可构建启动 |
+| G4 | Registrar 桥接未导出 | 自定义 `cmd` 复制私有适配器 | P05 | 删除框架内私有桥接后仍可编译、启动 |
+| G5 | CLI、模板、示例缺失 | 无法 `new`/`module add` | P05 | 干净目录 e2e；模块生成后构建和测试通过 |
+| G6 | 内置模块粒度与页面替换 | 只能整模块禁用，不能替换单个内置页面 | P05 | 页面禁用或新 Page ID 替换方案有测试，且不改 core |
+| G7 | Manifest 与 entries 一致性测试 | 可能出现菜单有页面、前端打不开 | P03 | 架构测试覆盖 core 页面与业务 fixture |
+| G8 | 真实项目零改内核验证 | 缺少外部项目证据 | P06 | 两个真实项目升级、启动；业务资产/SQL 未被改写 |
+
+明确不列入缺口的非目标：Go `.so` 插件、运行期目录扫描、热插拔、覆盖或分叉 core 文件。这些是长期边界，不是待补能力。

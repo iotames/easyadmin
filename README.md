@@ -12,27 +12,108 @@ EasyAdmin 的目标是成为 Go 生态中具有 Yii 3 / Symfony / Laravel 工程
 
 核心原则：**简易之道，以简驭繁；基础功能收敛封装，约束统一入口。**
 
-## 2. 目标体验
+## 2. 使用方式
 
-框架本身开箱即用：
+### 2.1 运行框架自身
+
+框架仓库自带可运行的管理后台：
 
 ```bash
 go run ./cmd/easyadmin
-# 浏览器打开 http://127.0.0.1:19527
-# 首次启动初始化 SQLite、核心表和管理员，然后进入后台
+# 生产构建
+go build -o bin/easyadmin ./cmd/easyadmin
+./bin/easyadmin
 ```
 
-新业务项目：
+浏览器打开 http://127.0.0.1:19527。首次打开进入初始化页，创建第一个管理员后登录；默认使用 SQLite `data/easyadmin.db`，核心表在启动时幂等补齐。
+
+常用启动配置（可由环境变量或同名命令行参数覆盖）：
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `EASYADMIN_LISTEN` | `127.0.0.1:19527` | HTTP 监听地址 |
+| `EASYADMIN_DB_DRIVER` | `sqlite` | 默认数据源驱动 |
+| `EASYADMIN_DB_DSN` | `data/easyadmin.db` | 默认数据源 DSN |
+| `EASYADMIN_DATA_DIR` | `./data` | 运行数据目录 |
+| `EASYADMIN_ADMIN_PASSWORD` | 空 | 非回环地址首次初始化必填，并作为确认口令 |
+| `EASYADMIN_LOG_LEVEL` | `info` | 应用日志级别 |
+
+非回环监听时首次初始化必须设置 `EASYADMIN_ADMIN_PASSWORD`；不要把真实密钥写入仓库。
+
+### 2.2 作为业务项目依赖（P05 目标用法）
+
+> 以下为 P05 交付后的目标用法，当前 CLI、模板和业务页面注入尚未实现；接口以届时设计计划为准。
 
 ```bash
 easyadmin new myshop
 cd myshop
-go run ./cmd/myshop
-
 easyadmin module add orders
+go run ./cmd/myshop
 ```
 
-默认目标是只需要 Go 工具链和现代浏览器即可启动；SQLite 为零配置默认数据源；WebUI 资源随 Go 二进制交付。PostgreSQL、MySQL、外部存储和通知渠道按需启用，且必须经过对应测试认证。
+生成的项目只包含业务薄壳：`cmd/`、`apps/`、`webui/`、`config/`、`go.mod`。业务项目通过 `go.mod` 依赖版本化 EasyAdmin，不复制 `kernel`、`infra` 和内置 `apps`。
+
+业务模块实现 `kernel/module.Module`：
+
+```go
+type Module interface {
+    Manifest() module.Manifest
+    Declare(module.ConfigRegistrar) error
+    Register(module.Registrar) error
+}
+```
+
+在 Manifest 声明 `Pages`/`Permissions`；在业务项目 `webui/pages.js` 登记同名 Page ID：
+
+```js
+export default {
+  'orders': () => import('./assets/pages/orders/index.js'),
+};
+```
+
+组合根使用 `easyadmin.New()`、`Use(...)`、`WithWebAssets(...)`、`Run(ctx)` 装配；P05 前请按 2.3 的当前边界手工装配。
+
+### 2.3 当前阶段（P00-P02）接入边界
+
+截至 P02 已可用：框架自身启动、初始化/登录、用户/角色/权限/审计 API、核心表结构同步、WebUI 内核与登录流程。
+
+尚未交付：
+
+- `easyadmin new/module add`、`templates/app`、`examples/biz`；
+- 业务 `/assets/app/pages.js` 合并、`AppAssets` 挂载、业务页面实际渲染；
+- P03 的 Dashboard、用户、角色、审计、个人资料与配置（只读）页面。
+
+因此当前若要接入业务：
+
+1. 在业务仓库 `go.mod` require `github.com/iotames/easyadmin`；
+2. 自建 `cmd/<app>/main.go`，按顺序装配 `infra/conf`、`infra/db`、`apps/system`、`kernel/app`、`infra/httpapi`；
+3. 业务模块放业务仓库 `apps/<domain>/`，不要放进 EasyAdmin 仓库；
+4. 业务前端页面需等 P03/P05 的扩展接缝；在接缝交付前不具备“零改框架源码”的业务页面接入能力。
+
+完整缺口清单（G1-G8）、影响与关闭阶段见 [docs/SCAFFOLD_AND_UPGRADE.md](docs/SCAFFOLD_AND_UPGRADE.md) 第 8 节。
+
+### 2.4 扩展与升级规则
+
+定制按以下优先级，不改框架源码：
+
+1. 配置项；
+2. 构造函数选项；
+3. 消费方窄接口 + 组合根注入；
+4. 追加注册路由、菜单、页面、权限和任务；
+5. 提交上游或作为独立业务 app。
+
+明确不支持：Go `.so` 插件、运行期目录扫描、热插拔、覆盖 core 文件。Page ID 冲突会启动失败，不静默替换。
+
+升级只改依赖版本，不改业务文件：
+
+```bash
+go get github.com/iotames/easyadmin@vX.Y.Z
+go mod tidy
+```
+
+核心结构 `scope=core` 随框架升级；业务结构 `scope=app:<module-id>`、业务页面和业务配置由业务项目自己维护。需要固定框架提交时可用官方仓库 submodule + `replace`，但不得在 submodule 内长期改框架源码。
+
+默认目标仍是只需要 Go 工具链和现代浏览器即可启动；SQLite 为零配置默认数据源；WebUI 资源随 Go 二进制交付。PostgreSQL、MySQL、外部存储和通知渠道按需启用，且必须经过对应测试认证。
 
 ## 3. 设计原则
 

@@ -128,15 +128,15 @@ OIDC/LDAP、多租户、分布式会话、复杂策略引擎和外部 API Token 
 
 - 原生 ESM 前端内核：boot、router、layout、menu、api、notify、theme、store、perm、format、dom。
 - 全局布局插槽、菜单树、面包屑、响应式、主题 tokens、登录态和首次初始化流程。
-- Manifest Page ID 与前端动态 import entries 的一致性检查。
+- Manifest Page ID 与前端动态 import entries 的双向一致性检查；菜单顺序由服务端按 `Order` 裁决；权限码由 Manifest 统一入库。
 - 公共组件：PageHeader、DataTable、Form、FilterBar、Modal、Drawer、Tabs、Empty、Pagination、Notify。
-- 页面：登录、首次初始化、Dashboard、用户、角色、配置、个人资料。
+- 页面：登录、首次初始化、Dashboard、用户、角色、审计、配置（只读）、个人资料。
 - 浏览器内测试面、组件测试、架构测试、真实浏览器验收记录。
 - 生产 `go:embed` 和开发磁盘模式贯通。
 
 ### 验收
 
-- 完成初始化 → 登录 → 仪表盘 → 用户/角色/配置管理全流程。
+- 完成初始化 → 登录 → 仪表盘 → 用户/角色/配置查看全流程；配置写入不在 v0.x 承诺范围。
 - 未授权菜单不展示，直接访问后端 API 仍被拒绝。
 - 网络面板证明仅加载当前页面模块；切换页面后才加载对应 ESM。
 - 页面卸载释放监听器、计时器和请求；键盘和焦点交互可用。

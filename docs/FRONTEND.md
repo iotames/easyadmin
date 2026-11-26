@@ -86,13 +86,21 @@ webui/
     └── cases_arch.js
 ```
 
-模块 ID 与目录保持一致：
+Page ID 与目录保持一致（Page ID 即入口键名）：
 
-| 模块 ID | 前端入口 |
-|---|---|
-| `dashboard` | `assets/pages/dashboard/index.js` |
-| `system.users` | `assets/pages/system/users/index.js` |
-| `system.roles` | `assets/pages/system/roles/index.js` |
+| Page ID | 前端入口 | 归属阶段 |
+|---|---|---|
+| `dashboard` | `assets/pages/dashboard/index.js` | P03 |
+| `profile` | `assets/pages/profile/index.js` | P03 |
+| `system.users` | `assets/pages/system/users/index.js` | P03 |
+| `system.roles` | `assets/pages/system/roles/index.js` | P03 |
+| `system.audit` | `assets/pages/system/audit/index.js` | P03 |
+| `system.config` | `assets/pages/system/config/index.js` | P03（只读） |
+| `system.logs` | `assets/pages/system/logs/index.js` | P04 |
+| `system.tasks` | `assets/pages/system/tasks/index.js` | P04 |
+| `system.schedules` | `assets/pages/system/schedules/index.js` | P04 |
+
+Page ID 与路径、菜单、权限的对应关系以 `docs/plan/P03_WEBUI_DESIGN_PLAN.md` §5.3 为准；未到归属阶段的页面不得提前登记 entry。
 
 ## 3. 启动流程
 
@@ -217,9 +225,9 @@ webui/
 
 ### 5.2 渲染规则
 
-- 一级菜单为分组，二级为页面；
+- 一级菜单既可以是分组（二级为页面），也可以是顶层页面（如控制台、个人资料）；
 - 当前路径高亮对应项，并展开父分组；
-- 菜单项按 Manifest 声明顺序排列，不按字母猜；
+- 顺序由服务端 `/api/meta` 按 Manifest `Order` 排序后返回，前端按返回顺序渲染，不二次排序、不按字母猜；
 - 为空的分组不渲染；
 - 菜单点击只做客户端路由，不整页刷新；
 - 菜单状态由 `menu.js` 拥有，页面不得直接修改菜单 DOM。
@@ -234,21 +242,23 @@ webui/
 
 ### 6.1 路由表
 
-前端维护“模块 ID → 入口文件”的静态映射：core 页面在 `core/router.js` 登记，业务页面在项目自己的 `webui/pages.js` 登记。路径来自后端菜单/页面描述：
+前端维护“模块 ID → 入口文件”的静态映射，统一经 `router.registerEntries` 注册：core 页面由 core 自己的注册模块登记，业务页面在项目自己的 `webui/pages.js` 登记。禁止在 `createRouter` 内硬编码私有 entries。路径来自后端菜单/页面描述：
 
 ```js
-// core/router.js
-const entries = {
-  'dashboard':        () => import('../pages/dashboard/index.js'),
-  'system.users':     () => import('../pages/system/users/index.js'),
-  'system.roles':     () => import('../pages/system/roles/index.js'),
-  'system.config':    () => import('../pages/system/config/index.js'),
-  'system.logs':      () => import('../pages/system/logs/index.js'),
-  'system.tasks':     () => import('../pages/system/tasks/index.js'),
-  'system.schedules': () => import('../pages/system/schedules/index.js'),
-  'profile':          () => import('../pages/profile/index.js'),
-};
+// core/pages.js（core 注册模块，boot 在 router.start 前导入）
+import { registerEntries } from './router.js';
+
+registerEntries({
+  'dashboard':    () => import('../pages/dashboard/index.js'),
+  'profile':      () => import('../pages/profile/index.js'),
+  'system.users': () => import('../pages/system/users/index.js'),
+  'system.roles': () => import('../pages/system/roles/index.js'),
+  'system.audit': () => import('../pages/system/audit/index.js'),
+  'system.config': () => import('../pages/system/config/index.js'),
+});
 ```
+
+`system.logs`、`system.tasks`、`system.schedules` 属 P04，未交付前不得登记，避免“菜单有页面、前端打不开”。
 
 新增业务模块必须同时：
 
@@ -256,7 +266,7 @@ const entries = {
 2. 在项目 `webui/pages.js` 注册入口；
 3. 在 `_test/cases_arch.js` 的清单一致性检查中通过。
 
-缺一即构建/测试报红，避免“后端有菜单、前端打不开”。
+一致性是双向的：Manifest 的每个 Page ID 必须在 entries 中存在，entries 也不得出现 Manifest 未声明的 Page ID。缺一即构建/测试报红，避免“后端有菜单、前端打不开”或“前端有页面、后端无授权”。
 
 ### 6.4 业务页面扩展
 
@@ -267,7 +277,7 @@ EasyAdmin core 资源由框架内嵌，业务页面由业务项目自己的 `web
 /assets/app/    业务 webui 资源
 ```
 
-业务项目导出 `webui.Assets`，在组合根传给 App；启动时 core 路由表与 `webui/pages.js` 合并：
+业务项目导出 `webui.Assets`，在组合根传给 App；服务端通过 `httpapi.HandlerOptions.AppAssets` 挂载业务资源：`/assets/` 固定来自 core，`/assets/app/` 来自业务。启动时 core 路由表与 `webui/pages.js` 合并：
 
 ```js
 // webui/pages.js
@@ -279,7 +289,8 @@ export default {
 规则：
 
 - Page ID 全局唯一；冲突在启动期失败，不静默覆盖 core 页面。
-- `/assets/app/pages.js` 不存在时直接跳过，不影响 core 页面。
+- core 页面与业务页面都必须经 `router.registerEntries` 注册；boot 在 `router.start` 前导入 `/assets/app/pages.js`，不存在或 404 时直接跳过。
+- `AppAssets` 未配置时行为与纯 core 部署一致；配置后业务页面和 `/assets/app/styles/app.css` 才可加载。
 - 业务页面使用稳定的 `ctx`、`api`、`notify`、通用组件和 CSS 变量，不复制 core 组件。
 - 框架升级只替换 `/assets/` 下的 core 资源，不改写 `/assets/app/` 下的业务页面。
 - 业务需要改全局布局或 core 组件时，先确认是否应提交上游；不得在业务侧直接改 core DOM。

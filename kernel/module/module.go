@@ -20,7 +20,7 @@ type Manifest struct {
 }
 
 // PageMeta 描述一个前端页面入口。ID 必须全局唯一并与前端 entry 一一对应。
-// Menu 为空表示不进入菜单；Perm 为空表示登录即可访问。
+// Menu 为空表示作为顶层菜单项；非空时作为同名分组下的二级项。Perm 为空表示登录即可访问。
 type PageMeta struct {
 	ID    string
 	Title string

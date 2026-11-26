@@ -13,13 +13,15 @@
 
 ## 2. 实施步骤
 
-1. 定义 CLI 参数、退出码、日志和错误输出契约。
-2. 实现 `new`：嵌入模板、变量替换、原子目录生成、配置初始化和首次构建。
-3. 实现 `module add`：Go 模块、Manifest、SQL、ESM 页面、测试和文档骨架。
-4. 实现 dev/build/version/doctor 并保证原生命令可替代。
-5. 定义 Provider/Adapter 消费方接口、注册约束和版本能力检查。
-6. 增加 storage 或数据库等一个真实 Provider 示例，不先实现无消费者接口。
-7. 加入模板升级、兼容性检查、端到端脚本和开发文档。
+1. 定义并导出公共装配门面（`easyadmin.New/Use/WithWebAssets/Run`）与 `httpapi.NewRegistrar`，用最小业务 cmd 验证无需私有桥接器。
+2. 定义 CLI 参数、退出码、日志和错误输出契约。
+3. 实现 `new`：嵌入模板、变量替换、原子目录生成、配置初始化和首次构建。
+4. 实现 `module add`：Go 模块、Manifest、SQL、ESM 页面、`webui/pages.js` 入口、测试和文档骨架。
+5. 实现 dev/build/version/doctor 并保证原生命令可替代。
+6. 定义内置模块页面禁用/替换的最小选项契约，并补对应测试。
+7. 定义 Provider/Adapter 消费方接口、注册约束和版本能力检查。
+8. 增加 storage 或数据库等一个真实 Provider 示例，不先实现无消费者接口。
+9. 加入模板升级、兼容性检查、端到端脚本和开发文档。
 
 ## 3. 主要修改文件/目录
 
@@ -35,6 +37,7 @@
 CLI 单测、模板 golden test、干净目录 e2e、生成项目 go test/build、Manifest/前端入口校验、Provider contract test、旧版本项目升级测试。
 回退：保留上一版模板和 CLI 兼容路径；生成器版本化，禁止静默重写已有业务文件。
 
+- [ ] 生成含业务页面的项目后，`/assets/app/pages.js` 可加载，升级不覆盖业务页面与业务 SQL。
 - [ ] `gofmt`、`go test ./...`、`go vet ./...` 通过。
 - [ ] 适用的 race、集成、浏览器或跨平台测试通过。
 - [ ] 失败用例和边界情况有证据，不以“本地可运行”代替验收。
