@@ -254,7 +254,7 @@ OIDC/LDAP、多租户、分布式会话、复杂策略引擎和外部 API Token 
 
 ## 12. 计划文件
 
-计划目录遵循 `docs/plan/README.md`：在进行的项目把 `<项目>_DESIGN_PLAN.md` 与 `<项目>_IMPL_PLAN.md` 成对放在 `docs/plan/` 根部（当前 P04-P06 共 3 对、6 份）；开工后执行明细 `STEPn_*.md` 放入同名项目子目录。已完成项目按宪法归档到 `docs/done/`，执行期文档不留在计划目录。
+计划目录遵循 `docs/plan/README.md`：在进行的项目把 `<项目>_DESIGN_PLAN.md` 与 `<项目>_IMPL_PLAN.md` 成对放在 `docs/plan/` 根部（当前 P03-P06 共 4 对、8 份）；开工后执行明细 `STEPn_*.md` 放入同名项目子目录。已完成项目按宪法归档到 `docs/done/`，执行期文档不留在计划目录。
 
 | 阶段 | 设计计划 | 实施计划 |
 |---|---|---|
