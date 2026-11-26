@@ -170,6 +170,45 @@ func TestSPAFallback(t *testing.T) {
 	}
 }
 
+func TestAppAssetsMount(t *testing.T) {
+	appAssets := fstest.MapFS{
+		"pages.js":       &fstest.MapFile{Data: []byte("export default {}")},
+		"styles/app.css": &fstest.MapFile{Data: []byte(":root{}")},
+	}
+	h := NewHandler(HandlerOptions{
+		Info:      AppInfo{Name: "demo", Version: "test"},
+		Readiness: fakeReady(true),
+		Assets:    testAssets(),
+		AppAssets: appAssets,
+		Logger:    logx.New("error"),
+	})
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/assets/app/pages.js", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "export default") {
+		t.Fatalf("业务 pages.js = %d %q", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/assets/app/styles/app.css", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("业务 app.css = %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/app.js", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "console.log") {
+		t.Fatalf("core 资源被覆盖 = %d %q", rec.Code, rec.Body.String())
+	}
+
+	h2 := newTestHandler(t, NewRouter(), NewCatalog(), true, nil, nil)
+	miss := httptest.NewRecorder()
+	h2.ServeHTTP(miss, httptest.NewRequest(http.MethodGet, "/assets/app/pages.js", nil))
+	if miss.Code != http.StatusNotFound {
+		t.Fatalf("未配置 AppAssets 应为 404，实际 %d", miss.Code)
+	}
+}
+
 func TestRouterRejectsDuplicateAndReserved(t *testing.T) {
 	rt := NewRouter()
 	h := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})

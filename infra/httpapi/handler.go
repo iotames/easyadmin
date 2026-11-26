@@ -42,6 +42,7 @@ type HandlerOptions struct {
 	Info      AppInfo
 	Readiness Readiness
 	Assets    fs.FS
+	AppAssets fs.FS
 	Logger    *logx.Logger
 	Router    *Router
 	Catalog   *Catalog
@@ -132,6 +133,10 @@ func NewHandler(opts HandlerOptions) http.Handler {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, apperror.CodeNotFound, "接口不存在")
 	})
+	if opts.AppAssets != nil {
+		// 业务资源固定挂载在 /assets/app/，不会覆盖 core 的 /assets/ 资源。
+		mux.Handle("/assets/app/", http.StripPrefix("/assets/app/", http.FileServer(http.FS(opts.AppAssets))))
+	}
 	mux.Handle("/", spaHandler{fsys: opts.Assets, files: http.FileServer(http.FS(opts.Assets))})
 
 	return Chain(mux, RequestID, Recover(opts.Logger), AccessLog(opts.Logger))

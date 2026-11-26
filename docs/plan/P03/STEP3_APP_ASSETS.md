@@ -1,6 +1,6 @@
 ﻿# STEP3：AppAssets 与业务资源接缝
 
-状态：待实施
+状态：已实施
 
 ## 目标
 - `httpapi.HandlerOptions.AppAssets fs.FS` 新增字段。
@@ -13,16 +13,16 @@
 - `infra/httpapi/httpapi_test.go`
 
 ## 实施步骤
-- [ ] HandlerOptions 增加 AppAssets
-- [ ] 挂载 `/assets/app/`，仅 GET/HEAD
-- [ ] 未配置时保持 404 行为
-- [ ] 补配置/未配置/core 不被覆盖三类测试
+- [x] HandlerOptions 增加 AppAssets
+- [x] 挂载 `/assets/app/`，仅 GET/HEAD
+- [x] 未配置时保持 404 行为
+- [x] 补配置/未配置/core 不被覆盖三类测试 ✓（`TestAppAssetsMount`，通过）
 
 ## 验证
 - 接手核实命令：`go test ./infra/httpapi/...`
 - 本步完整验证：
-  - [ ] `go test ./infra/httpapi/...`
-  - [ ] `go vet ./infra/httpapi/...`
+  - [x] `go test ./infra/httpapi/...`
+  - [x] `go vet ./infra/httpapi/...`
 
 ## 完成标准
 - `/assets/app/pages.js` 在配置后返回内容，未配置返回 404；`/assets/core` 路径仍来自 core。
@@ -32,4 +32,4 @@
 - 新增字段：`HandlerOptions.AppAssets`
 - 新增测试：`TestAppAssetsMount`
 ### 偏差与现场记录
-- 待回填
+- `cmd/easyadmin` 暂无业务资源，`AppAssets` 保持未配置；接缝由 P05 的业务项目组合根注入。

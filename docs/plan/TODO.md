@@ -18,7 +18,7 @@
 |---|------|------|------|------|
 | 1 | P03/STEP1_BACKEND_META.md | 页面 ID、菜单排序、权限单源 | — | 已实施 |
 | 2 | P03/STEP2_CONFIG_READONLY.md | 配置元数据与只读接口 | 1 | 已实施 |
-| 3 | P03/STEP3_APP_ASSETS.md | AppAssets 与业务资源接缝 | 1 | 待实施 |
+| 3 | P03/STEP3_APP_ASSETS.md | AppAssets 与业务资源接缝 | 1 | 已实施 |
 | 4 | P03/STEP4_CORE_WIRING.md | 前端内核页面注册与启动接线 | — | 待实施 |
 | 5 | P03/STEP5_PAGES.md | 六个核心页面 | 2,3,4 | 待实施 |
 | 6 | P03/STEP6_TESTS.md | Go 与浏览器测试补齐 | 5 | 待实施 |
@@ -38,3 +38,4 @@
 | 2026-11-26 | 智能体 | 准备 | P03 DESIGN_PLAN 标记 APPROVED，建立总纲与步骤 |
 | 2026-11-26 | 智能体 | STEP1 | 已实施：菜单 Order 排序、dashboard、权限单源；go test/go vet 通过 |
 | 2026-11-26 | 智能体 | STEP2 | 已实施：配置元数据、来源判定、GET /api/system/config、敏感遮蔽；全量测试通过 |
+| 2026-11-26 | 智能体 | STEP3 | 已实施：AppAssets 挂载 /assets/app/，未配置保持 404；全量测试通过 |
