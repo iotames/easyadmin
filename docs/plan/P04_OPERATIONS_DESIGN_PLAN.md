@@ -28,7 +28,7 @@
 - Task Center：持久化任务、进度、日志、取消、重试、任务清理与重启收口。
 - Scheduler：复用现有扫描/派发核心，实现 SQL Store；调度器只提交任务。
 - 本地 Storage：原子写入、哈希去重、对象元数据、鉴权下载、软删除和清理。
-- 运维 API/UI：任务、调度、文件、应用日志/访问日志/审计日志查询与系统诊断。
+- 运维 API/UI：任务、调度、文件、应用日志查询、访问日志诊断、审计日志查询与系统诊断。
 - 使用 infra/credential 支持的 SSH 凭据能力建设服务器记录管理；密钥密文持久化，页面不得读取明文私钥。
 - 所有能力以单实例部署为基线，不承诺多实例协调和集群抢占。
 
@@ -56,7 +56,7 @@
 - 任务提交/执行/完成状态必须由单一状态机维护；存储失败不能静默丢失任务。
 - 当前 tasks.Center 主要状态与目标持久化状态需显式映射：现有 done 映射为对外 success；重启遗留 running 记录收口为 interrupted；pending、skipped 等状态只有在执行队列/调度语义实现后才可产生。
 - 重启恢复不等于从函数中间位置续跑：未完成任务先标为 interrupted；仅注册为幂等且允许重试的 kind 可以重新创建执行尝试，生成新的 task_no，attempt_no 递增，retry_of_no 指向前一次尝试。
-- Scheduler 使用唯一 sys_schedule 数据模型；config_key 是启停唯一真源，不额外加 enabled 列。
+- Scheduler 使用唯一 sys_schedule 数据模型；config_key 是启停唯一真源，不额外加 enabled 列；周期同样不落库，由 plan_key 配置或注册 Plan 解析。
 - Scheduler 的 pending_task_id 必须引用真实可查询的任务记录；Task Store 和 Scheduler Store 的更新顺序、事务边界及孤儿清理策略必须在实现设计中明确。
 - 文件元数据与文件内容分离；对象 key 由服务端产生；所有下载经过权限检查。
 - 日志语义区分 Application、Access、Audit、Task；没有真实 reader/index 的日志类型不得展示“可查询”页面。
@@ -69,7 +69,7 @@
 
 | 字段 | 类型/约束 | 含义 |
 |---|---|---|
-| id | BIGINT PK | 内部主键 |
+| id | 自增主键 | 内部主键 |
 | task_no | VARCHAR(64) UNIQUE NOT NULL | 稳定任务号 |
 | parent_no | VARCHAR(64) NULL | 业务父任务号，最多两级 |
 | attempt_no | INTEGER NOT NULL DEFAULT 1 | 执行尝试序号 |
@@ -91,7 +91,7 @@
 
 | 字段 | 类型/约束 | 含义 |
 |---|---|---|
-| id | BIGINT PK | 日志主键 |
+| id | 自增主键 | 日志主键 |
 | task_no | VARCHAR(64) NOT NULL | 所属任务号 |
 | seq | BIGINT NOT NULL | 任务内递增序号 |
 | level | VARCHAR(8) NOT NULL | debug/info/warn/error |
@@ -109,7 +109,6 @@
 | title | VARCHAR(128) NOT NULL | 展示名 |
 | config_key | VARCHAR(128) NOT NULL | 启停配置键，唯一真源 |
 | plan_key | VARCHAR(128) NOT NULL DEFAULT '' | 周期配置键；空则用注册 Plan |
-| plan_every_min | INTEGER NOT NULL | 当前生效周期 |
 | remark | VARCHAR(500) NOT NULL DEFAULT '' | 说明 |
 | last_status/last_message | VARCHAR(16)/VARCHAR(255) | 最近结果 |
 | last_task_id | VARCHAR(64) NOT NULL DEFAULT '' | 最近派发任务 |
@@ -117,13 +116,13 @@
 | last_run_at/next_run_at | TIMESTAMP NULL | 时间状态 |
 | updated_at | TIMESTAMP NOT NULL | 更新时间 |
 
-约束：不创建 id 或 enabled 列；config_key 是启停唯一来源；last_task_id 与 pending_task_id 语义不同。SQL 唯一口径以 DATA_DICT.md §4.3 为准。
+约束：不创建 id、enabled 或周期列；config_key 是启停唯一来源；周期由 plan_key 配置或注册 Plan 解析，配置值是唯一真源；last_task_id 与 pending_task_id 语义不同。SQL 唯一口径以 DATA_DICT.md §4.3 为准。
 
 ### 6.4 sys_file
 
 | 字段 | 类型/约束 | 含义 |
 |---|---|---|
-| id | BIGINT PK | 文件记录 ID |
+| id | 自增主键 | 文件记录 ID |
 | object_key | VARCHAR(512) UNIQUE NOT NULL | 服务端生成的对象 key |
 | original_name | VARCHAR(255) NOT NULL | 展示名 |
 | mime_type | VARCHAR(128) NOT NULL DEFAULT '' | MIME |
@@ -140,7 +139,7 @@
 
 | 字段 | 类型/约束 | 含义 |
 |---|---|---|
-| id | BIGINT PK | 服务器 ID |
+| id | 自增主键 | 服务器 ID |
 | name | VARCHAR(64) UNIQUE NOT NULL | 稳定名 |
 | connect_type | VARCHAR(16) NOT NULL | direct/config |
 | host/port | VARCHAR(255)/INTEGER | 连接目标，port 默认 22 |
@@ -165,11 +164,11 @@
 - sys_file.created_by 可关联 sys_user.id（用户删除策略需与审计保留规则一致）。
 - sys_server 独立保存 SSH 目标与加密凭据，不存私钥明文。
 
-核心 SQL 逻辑（通用类型；SQLite 方言由 migration 文件调整）：
+核心 SQL 逻辑（SQLite 参考 DDL；MySQL/PostgreSQL 按 DATA_DICT.md §1.1 映射生成）：
 
 ~~~sql
 CREATE TABLE sys_task (
-  id BIGINT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   task_no VARCHAR(64) NOT NULL UNIQUE,
   parent_no VARCHAR(64) NULL,
   attempt_no INTEGER NOT NULL DEFAULT 1,
@@ -197,7 +196,7 @@ CREATE INDEX idx_sys_task_created_at ON sys_task(created_at);
 CREATE INDEX idx_sys_task_retry_of_no ON sys_task(retry_of_no);
 
 CREATE TABLE sys_task_log (
-  id BIGINT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   task_no VARCHAR(64) NOT NULL,
   seq BIGINT NOT NULL,
   level VARCHAR(8) NOT NULL,
@@ -207,22 +206,26 @@ CREATE TABLE sys_task_log (
   UNIQUE(task_no, seq),
   FOREIGN KEY(task_no) REFERENCES sys_task(task_no) ON DELETE CASCADE
 );
+CREATE INDEX idx_sys_task_log_created_at ON sys_task_log(created_at);
 
 CREATE TABLE sys_file (
-  id BIGINT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   object_key VARCHAR(512) NOT NULL UNIQUE,
   original_name VARCHAR(255) NOT NULL,
   mime_type VARCHAR(128) NOT NULL DEFAULT '',
   size BIGINT NOT NULL,
-  sha256 VARCHAR(64) NOT NULL,
+  sha256 VARCHAR(64) NOT NULL UNIQUE,
   driver VARCHAR(32) NOT NULL DEFAULT 'local',
   created_by BIGINT NULL,
   created_at TIMESTAMP NOT NULL,
   deleted_at TIMESTAMP NULL
 );
 
+CREATE INDEX idx_sys_file_created_at ON sys_file(created_at);
+CREATE INDEX idx_sys_file_deleted_at ON sys_file(deleted_at);
+
 CREATE TABLE sys_server (
-  id BIGINT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   name VARCHAR(64) NOT NULL UNIQUE,
   connect_type VARCHAR(16) NOT NULL,
   host VARCHAR(255) NOT NULL DEFAULT '',
@@ -241,7 +244,7 @@ CREATE TABLE sys_server (
 );
 ~~~
 
-sys_schedule 的 SQL 见 DATA_DICT.md §4.3，避免复制第二套表定义。所有外键、索引和 SQLite/MySQL/PostgreSQL 方言差异必须由对应迁移脚本和集成测试落实。
+sys_schedule 的 SQL 见 DATA_DICT.md §4.3，避免复制第二套表定义。所有外键、索引和 SQLite/MySQL/PostgreSQL 方言差异必须由对应结构脚本和集成测试落实。
 
 ### 6.7 任务生命周期与恢复数据流
 

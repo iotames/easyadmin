@@ -77,7 +77,7 @@ webui → 同源 /api 契约
 - 列表有默认分页和硬上限；统计查询必须有合理范围。
 - SQL 加载顺序、外挂覆盖和 fallback 由 Data 层统一实现并测试。
 - 时间 UTC 存储，RFC3339 输出，浏览器本地化展示。
-- 迁移前进；执行失败要有恢复说明；不能启动时自动删改列。
+- 开发期使用声明式结构同步；`DiffSchema` 只做只读预览，变更 SQL 必须显式确认；不能启动时自动删改列。
 
 ## 7. HTTP/API
 
@@ -105,7 +105,7 @@ webui → 同源 /api 契约
 - [ ] Declare 只登记配置，不做 IO。
 - [ ] Register 只登记已启用模块的运行资源。
 - [ ] Service/Repository/API 分层清楚，依赖经构造函数传入。
-- [ ] SQL 按方言组织并登记给迁移器。
+- [ ] SQL 按方言组织并登记到模块结构清单。
 - [ ] Manifest 菜单、页面、权限与前端入口一致。
 - [ ] 写操作按风险显式审计。
 - [ ] 生命周期资源可关闭；模块禁用时系统按依赖规则仍可运行。
@@ -119,13 +119,13 @@ webui → 同源 /api 契约
 
 密码哈希使用成熟算法；会话 Cookie 设置 HttpOnly、SameSite，HTTPS 设置 Secure；写操作有 CSRF。输入在服务端校验，输出按 HTML/URL/SQL 上下文处理。文件名不能成为物理路径；存储下载走鉴权 API。危险操作审计并要求二次确认。
 
-审计事件至少包含 actor、action、resource、result、time、request_id；敏感内容脱敏。审计记录普通用户不可修改，保留期与归档行为明确。
+审计事件至少包含 actor、action、resource、outcome、time、request_id；敏感内容脱敏。审计记录普通用户不可修改，保留期与归档行为明确。
 
 ## 11. 测试与质量
 
 - Go：标准 `testing`、表驱动；单测不依赖外部服务；集成测试使用独立 DSN 和清理策略。
 - HTTP：成功、参数错误、未授权、无权限、依赖异常和 panic 恢复。
-- DB：事务提交/回滚、迁移重复执行、方言差异和并发初始化。
+- DB：事务提交/回滚、结构同步重复执行、方言差异和并发初始化。
 - Task/Scheduler：注入可控时钟，不 sleep；取消、重启、重复提交和关闭测试。
 - Frontend：浏览器内 core/component/module/architecture 用例；关键交互实看。
 - 架构测试能对故意违规 import、裸 fetch、底层 DB 使用、Manifest 漂移失败。

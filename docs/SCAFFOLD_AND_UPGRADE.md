@@ -179,7 +179,7 @@ EasyAdmin 是独立 Go module。业务项目只通过 `go.mod` 依赖它：
 - 升级通过 `go get` 或后续 `easyadmin upgrade` 完成，所有项目拿到同一份修复。
 - `infra/internal`、框架内部包、各 app 的 `internal` 不是公开 API。
 - 框架仓库内的 `examples/biz` 可以用 `go.work` 或 `replace` 指向本地 EasyAdmin；生成到用户目录的项目不加 `replace`，始终依赖正式版本。
-- v0.x 阶段业务项目精确锁定版本；v1.0 后按语义化版本升级。P5 先提供 `doctor` 和升级文档，自动 `upgrade` 命令在 P6 有真实需求后再做，避免提前造复杂迁移器。
+- v0.x 阶段业务项目精确锁定版本；v1.0 后按语义化版本升级。P5 先提供 `doctor` 和升级文档，自动 `upgrade` 命令在 P6 有真实需求后再做，避免提前造复杂升级器。
 
 ### 5.2 公开契约
 
@@ -193,18 +193,15 @@ EasyAdmin 是独立 Go module。业务项目只通过 `go.mod` 依赖它：
 
 这些契约遵守“只增不改”：新增字段、端点、可选参数和枚举可以；删除、重命名、改类型、改语义不可以。
 
-### 5.3 升级与迁移分域
+### 5.3 升级与结构同步分域
 
-核心迁移和业务迁移分账管理：
+核心结构脚本和业务结构脚本分账管理：
 
-```text
-schema_migrations(scope, version, checksum, applied_at)
-```
-
-- `scope = core`：EasyAdmin 核心和内置 app 的迁移，随框架版本演进。
-- `scope = app:<module-id>`：业务 app 的迁移，归业务项目所有。
-- 启动时先应用 `core`，再按 app 依赖顺序应用业务迁移。
-- 框架升级只新增/执行 `core` 迁移；业务迁移文件不被改写。
+- `scope = core`：EasyAdmin 核心和内置 app 的结构脚本，随框架版本演进，位于 `sql/<dialect>/`。
+- `scope = app:<module-id>`：业务 app 的结构脚本，归业务项目所有。
+- 启动时先按 `core`、再按 app 依赖顺序执行声明式 Ensure，只补齐缺失表和索引。
+- 框架升级只新增/同步 `core` 结构脚本；业务结构脚本不被改写。
+- 开发期不创建版本迁移账本；列级变更须经 `DiffSchema` 预览并显式确认。生产前另行设计版本化升级方案（见 `DECISIONS.md` D20）。
 
 核心表使用 `sys_` 前缀；业务表使用自己的前缀，避免命名冲突。
 
@@ -290,12 +287,12 @@ CLI 版本也要对齐：
 ## 6. 验证与发布
 
 - 模板 golden test：渲染到临时目录，执行 `go build ./...`、启动、登录。
-- `examples/biz`：直接构建运行，覆盖一个真实业务域、迁移、页面和权限。
+- `examples/biz`：直接构建运行，覆盖一个真实业务域、结构同步、页面和权限。
 - 兼容性测试：固定旧版 API fixture、JS `ctx`/组件契约、Manifest Page ID。
-- 升级测试：用上一版本生成项目，升级到当前版本后构建、启动、执行核心迁移，确认业务迁移未变。
-- `easyadmin doctor`：检查 Go 版本、框架版本、模板版本、迁移状态和配置缺失。
+- 升级测试：用上一版本生成项目，升级到当前版本后构建、启动、完成核心结构同步，确认业务结构脚本未被改写。
+- `easyadmin doctor`：检查 Go 版本、框架版本、模板版本、结构同步状态和配置缺失。
 
-发布顺序：先冻结公开契约与迁移 checksum，再发 EasyAdmin 版本，最后更新 `templates/app` 和 `examples/biz` 的绑定版本。
+发布顺序：先冻结公开契约与核心结构脚本，再发 EasyAdmin 版本，最后更新 `templates/app` 和 `examples/biz` 的绑定版本。
 
 ## 7. 日常开发工作流
 
@@ -313,6 +310,6 @@ CLI 版本也要对齐：
 3. 发布新版本；
 4. 业务项目 `go get` 升级并跑 `easyadmin doctor`。
 
-升级检查顺序：读变更说明 → 更新 `go.mod` → 启动应用应用 `core` 迁移 → 跑测试和 `doctor` → 灰度验证业务页面。业务迁移文件、业务页面和业务配置不在升级中自动改写。
+升级检查顺序：读变更说明 → 更新 `go.mod` → 启动应用完成 `core` 结构同步 → 跑测试和 `doctor` → 灰度验证业务页面。业务结构脚本、业务页面和业务配置不在升级中自动改写。
 
 这套流程的核心约束只有一句：**业务项目可以依赖 EasyAdmin，但不能拥有一份分叉的 EasyAdmin。**

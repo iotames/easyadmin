@@ -24,7 +24,7 @@
 | 分层 | kernel/infra 依赖关系不够明确 | adapter boundary 更突出 | kernel 不依赖具体 infra；cmd 负责组合 |
 | 配置 | 注册、默认值快照、热更和 `.env` 写回 | Bootstrap/Runtime Settings 分离 | 保留注册制，强化来源追踪；v0.x 只做启动配置，运行设置后置 |
 | API | 使用 `/api/`、不设路径版本 | 使用路径版本化写法和统一错误契约 | 采用 `/api/`、不设路径版本；request_id 只在 `meta`；接口向下兼容 |
-| 数据 | 具体数据字典、三方言 | 迁移/兼容性风险 | 以用户数据字典为底稿，增加迁移与驱动认证门槛 |
+| 数据 | 具体数据字典、三方言 | 迁移/兼容性风险 | 以用户数据字典为底稿，增加结构同步与驱动认证门槛 |
 | 日志 | 基础日志规则 | Application/Access/Audit/Task 分离 | 合并，避免日志中心无数据来源 |
 | 参考项目 | RockSys、EmailPlugin、KitBus | RockSys 源码审查更明确 | 当前工作区三个项目源码均可用，按实际代码核验后标注证据 |
 
@@ -33,7 +33,7 @@
 1. **配置注册时机**：模块配置统一在 `Declare` 注册；配置加载完成后 `Register` 才挂载运行资源。移除“在 Register 阶段注册所有配置”的歧义。
 2. **依赖方向**：`kernel` 不 import 具体 `infra` 包；平台服务由组合根传入，避免内核和平台形成互相依赖。
 3. **跨模块访问**：字符串 Service Locator 不是默认方式。消费者定义小接口，组合根显式注入。
-4. **迁移执行**：模块只登记 migration；统一迁移器执行和记录，Register 阶段不直接运行 DDL。
+4. **结构同步**：模块只登记 `TableSpec` 结构清单；统一结构同步器幂等补齐，Register 阶段不直接运行 DDL。
 5. **API 响应**：成功和失败响应都使用顶层 `meta.request_id`；不在 error 内重复。
 6. **API 路径**：统一为 `/api/`，不设路径版本；健康探针保留 `/healthz`、`/readyz`。接口遵循向下兼容，只增不改。
 7. **中间件顺序**：RequestID 最外层，确保 Recovery/AccessLog 能关联请求 ID；顺序由集成测试固定。

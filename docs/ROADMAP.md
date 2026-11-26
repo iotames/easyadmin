@@ -98,7 +98,7 @@
 
 - 以现有 `infra/db`、`DataSourceManager` 为起点核验命名数据源、SQL 脚本加载、参数绑定、事务、连接池、慢查询和超时；复用已存在能力，不按空白重写。
 - 默认 SQLite 初始化；PostgreSQL/MySQL 适配与方言测试，按实际结果分级支持。
-- `schema_migrations`、checksum、幂等 Ensure、版本化迁移、失败恢复说明。
+- 声明式结构同步：`TableSpec` 清单 + 幂等 Ensure；`DiffSchema` 只读差异预览，变更 SQL 必须显式确认；不建版本迁移账本。
 - 用户、角色、权限、会话和关联表；bcrypt 等成熟密码哈希；Cookie 会话、CSRF、登录限流。
 - 一次性首次管理员初始化流程；最后一个超级管理员保护。
 - RBAC 路由授权与菜单权限元信息；服务端是最终权威。
@@ -111,7 +111,7 @@
 - 未登录 401、无权限 403、CSRF 失败 403、字段校验 422；不能绕过服务端检查。
 - 用户禁用、密码修改和权限调整的会话失效行为有测试。
 - 最后一个活跃超级管理员不可被禁用/移除。
-- 迁移重复执行安全；失败不会伪装成功；方言支持矩阵有真实 CI 证据。
+- 结构同步重复执行安全；失败不会伪装成功；方言支持矩阵有真实 CI 证据。
 - Audit Log 与 Application Log 分离，敏感字段不泄露。
 
 ### 不做
@@ -183,7 +183,7 @@ OIDC/LDAP、多租户、分布式会话、复杂策略引擎和外部 API Token 
 ### 交付
 
 - CLI：`new`、`module add`、`dev`、`build`、`doctor`、`version`。
-- `templates/app` 最小业务项目模板；唯一的 `examples/biz` 展示业务 CRUD、迁移、页面和扩展方式。
+- `templates/app` 最小业务项目模板；唯一的 `examples/biz` 展示业务 CRUD、结构同步、页面和扩展方式。
 - 模块生成器产出 Go 目录、Manifest、SQL、WebUI ESM、测试和文档骨架；生成物必须可读可编辑。
 - Provider/Adapter 接入契约：存储、数据库驱动、认证源、通知等按真实需求接入；显式装配、版本兼容检查。
 - 模块契约测试、依赖树报告和资源清单校验。
@@ -194,7 +194,7 @@ OIDC/LDAP、多租户、分布式会话、复杂策略引擎和外部 API Token 
 - 干净目录 `easyadmin new demo` 后能构建、启动和登录。
 - `module add orders` 后模块可编译、登记 API/菜单/权限/页面，测试骨架可执行。
 - 生成物不存在不可解释的模板变量或运行期隐藏生成步骤。
-- 旧版本生成的项目升级后能构建、启动，核心迁移已应用且业务迁移未被改写。
+- 旧版本生成的项目升级后能构建、启动，核心结构已同步且业务结构脚本未被改写。
 - Provider 缺失、重复或版本不兼容能明确失败。
 - 不依赖 Go `.so` 插件或远程代码下载。
 
@@ -212,10 +212,10 @@ OIDC/LDAP、多租户、分布式会话、复杂策略引擎和外部 API Token 
 
 - 公开包/API/Module/Provider 契约清单和语义化版本策略。
 - API 向下兼容测试：固定旧版客户端请求/响应 fixture，禁止字段删除、类型变化和语义漂移。
-- 数据库方言、迁移、备份恢复和升级兼容测试矩阵。
+- 数据库方言、结构同步、数据迁移、备份恢复和升级兼容测试矩阵。
 - 性能基准：HTTP/中间件、数据访问、任务吞吐、首屏与页面切换。
 - 安全基线：会话、CSRF、登录限流、密码策略、响应头、上传、依赖漏洞和敏感数据审查。
-- 依赖升级、弃用、迁移、回滚和故障排查文档。
+- 依赖升级、弃用、数据迁移、回滚和故障排查文档。
 - Linux/macOS/Windows 等目标平台发行验证，版本/构建信息和 SBOM/许可证清单（按实际交付要求）。
 - 至少两个真实业务项目试用并将问题回灌。
 
@@ -241,7 +241,7 @@ OIDC/LDAP、多租户、分布式会话、复杂策略引擎和外部 API Token 
 | 可解释 | 新抽象和架构变化有决策记录 |
 | 可观测 | 错误有 request_id、结构化日志和状态 |
 | 可交付 | API/数据/配置/UI/文档同步，浏览器实际验收 |
-| 可回退 | 有迁移风险说明、关闭策略和恢复步骤 |
+| 可回退 | 有结构变更/数据迁移风险说明、关闭策略和恢复步骤 |
 
 ## 11. 关键风险
 
@@ -254,14 +254,14 @@ OIDC/LDAP、多租户、分布式会话、复杂策略引擎和外部 API Token 
 
 ## 12. 计划文件
 
-每期的正式设计和实施文件：
+计划目录遵循 `docs/plan/README.md`：每期的 `<项目>_DESIGN_PLAN.md` 与 `<项目>_IMPL_PLAN.md` 成对放在 `docs/plan/` 根部，共 7 对、14 份；开工后执行明细 `STEPn_*.md` 放入同名项目子目录（如 `docs/plan/P00_FOUNDATION/`），不影响阶段级配对文件。
 
-- `docs/plan/PHASE-00-FOUNDATION/`
-- `docs/plan/PHASE-01-RUNTIME/`
-- `docs/plan/PHASE-02-DATA-IDENTITY/`
-- `docs/plan/PHASE-03-WEBUI/`
-- `docs/plan/PHASE-04-OPERATIONS/`
-- `docs/plan/PHASE-05-CLI-ECOSYSTEM/`
-- `docs/plan/PHASE-06-STABILITY-RELEASE/`
-
-各目录均且仅包含成对的 `DESIGN_PLAN.md`、`IMPL_PLAN.md`；统一流程见 `plan/README.md`。
+| 阶段 | 设计计划 | 实施计划 |
+|---|---|---|
+| P00 | `docs/plan/P00_FOUNDATION_DESIGN_PLAN.md` | `docs/plan/P00_FOUNDATION_IMPL_PLAN.md` |
+| P01 | `docs/plan/P01_RUNTIME_DESIGN_PLAN.md` | `docs/plan/P01_RUNTIME_IMPL_PLAN.md` |
+| P02 | `docs/plan/P02_DATA_IDENTITY_DESIGN_PLAN.md` | `docs/plan/P02_DATA_IDENTITY_IMPL_PLAN.md` |
+| P03 | `docs/plan/P03_WEBUI_DESIGN_PLAN.md` | `docs/plan/P03_WEBUI_IMPL_PLAN.md` |
+| P04 | `docs/plan/P04_OPERATIONS_DESIGN_PLAN.md` | `docs/plan/P04_OPERATIONS_IMPL_PLAN.md` |
+| P05 | `docs/plan/P05_CLI_ECOSYSTEM_DESIGN_PLAN.md` | `docs/plan/P05_CLI_ECOSYSTEM_IMPL_PLAN.md` |
+| P06 | `docs/plan/P06_STABILITY_RELEASE_DESIGN_PLAN.md` | `docs/plan/P06_STABILITY_RELEASE_IMPL_PLAN.md` |

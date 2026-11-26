@@ -29,7 +29,7 @@
 - 模块注册仍由组合根显式完成。
 - Provider 由消费方定义最小接口、实现方独立包提供。
 - 模板与框架版本绑定并有兼容说明。
-- 业务项目只依赖版本化 EasyAdmin，不复制 `kernel`、`infra` 和内置 `apps`；核心与业务迁移、配置、前端资源分域。
+- 业务项目只依赖版本化 EasyAdmin，不复制 `kernel`、`infra` 和内置 `apps`；核心与业务结构脚本、配置、前端资源分域。
 
 模板文件树、`easyadmin new` 流程和独立升级机制见 `docs/SCAFFOLD_AND_UPGRADE.md`。
 

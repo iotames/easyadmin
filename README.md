@@ -8,7 +8,7 @@
 
 ## 1. 定位
 
-EasyAdmin 的目标是成为 Go 生态中具有 Yii 3 / Symfony / Laravel 工程完成度的中后台框架，但不复制 PHP 框架的隐式魔法。借鉴成熟框架的组件化、约定、认证授权、迁移、任务、后台 UI、脚手架和开发体验；坚持 Go 的显式依赖、静态类型、可读调用链、可检查错误和标准库兼容。
+EasyAdmin 的目标是成为 Go 生态中具有 Yii 3 / Symfony / Laravel 工程完成度的中后台框架，但不复制 PHP 框架的隐式魔法。借鉴成熟框架的组件化、约定、认证授权、结构同步、任务、后台 UI、脚手架和开发体验；坚持 Go 的显式依赖、静态类型、可读调用链、可检查错误和标准库兼容。
 
 核心原则：**简易之道，以简驭繁；基础功能收敛封装，约束统一入口。**
 
@@ -68,7 +68,7 @@ lib/easyconf、lib/easydb、lib/easyserver 是独立地基库；不反向依赖 
 - 运行内核：App、模块 Manifest、显式注册、依赖校验、生命周期、优雅停机。
 - 配置：注册表、类型校验、默认值快照、来源追踪、受控热更；v0.x 只做启动配置，运行设置后置。
 - 日志与可观测：结构化应用日志、HTTP Access Log、独立 Audit Log、Task Log、健康与诊断。
-- 数据：具名数据源、SQL 脚本、事务、迁移、方言适配、慢查询。
+- 数据：具名数据源、SQL 脚本、事务、结构同步、方言适配、慢查询。
 - HTTP：统一路由、中间件、响应、错误映射、参数校验、静态资源。
 - 安全：服务端会话、CSRF、RBAC、登录限流、审计、文件访问控制。
 - 运维：持久任务、调度、存储、系统信息、日志和审计查询。
@@ -82,13 +82,13 @@ lib/easyconf、lib/easydb、lib/easyserver 是独立地基库；不反向依赖 
 |---|---|---|---|
 | P0 | 地基与工程规范 | 架构冻结、组件设计规范、依赖核验、开发/测试反馈环 | v0.0 |
 | P1 | 运行时内核 | App、模块系统、配置、日志、HTTP、错误、健康检查 | v0.1-alpha |
-| P2 | 数据与身份安全 | 数据源、SQL/迁移、登录会话、RBAC、审计、初始化 | v0.1-beta |
+| P2 | 数据与身份安全 | 数据源、SQL/结构同步、登录会话、RBAC、审计、初始化 | v0.1-beta |
 | P3 | WebUI 管理台 | Layout、Menu、Router、懒加载、基础组件、系统管理页面 | v0.1 |
 | P4 | 运维能力 | 任务、调度、文件、日志/审计查询、系统诊断 | v0.2 |
 | P5 | CLI 与模块生态 | 项目模板、模块生成、Provider/Adapter、示例 | v0.5 |
 | P6 | 稳定与正式发行 | 安全、性能、兼容、升级、发布与真实项目验证 | v1.0 |
 
-每期严格配对：`DESIGN_PLAN.md` 负责设计与验收边界，`IMPL_PLAN.md` 负责文件级实施步骤、测试、风险和回退。七期共 14 份计划文件，见 [docs/plan/README.md](docs/plan/README.md)。
+每期严格配对：`<项目>_DESIGN_PLAN.md` 负责设计与验收边界，`<项目>_IMPL_PLAN.md` 负责文件级实施步骤、测试、风险和回退；两份文件位于 `docs/plan/` 根部，执行期 `STEPn_*.md` 放同名项目子目录。七期共 14 份计划文件，见 [docs/plan/README.md](docs/plan/README.md)。
 
 ## 7. 文档索引
 
@@ -124,3 +124,11 @@ lib/easyconf、lib/easydb、lib/easyserver 是独立地基库；不反向依赖 
 ---
 
 项目目标不是做一个什么都能做的巨型框架，而是建立一套默认路径很短、内部边界很清楚、可以持续演进的公共工程底座。
+
+## 9. 本地开发
+
+```bash
+make lib    # 同步 lib/ 下的 easy 系列依赖到上游最新代码
+```
+
+`.gitmodules` 声明的库走 `git submodule update --init --remote`（缺失自动克隆，已存在则更新，HEAD 处于 detached 属正常状态）；`lib/` 下未声明的普通仓库走 fetch + 快进同步。任一库有未提交改动会跳过并报错，不会静默覆盖。同步逻辑位于 `scripts/sync-lib.sh`，Makefile 仅保留入口。默认前缀为 `github:iotames`（走 SSH 别名 `github`），可用 `make lib LIB_GIT_PREFIX=git@github.com:iotames` 覆盖。

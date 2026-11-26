@@ -16,7 +16,7 @@
 
 ## D02 SQL-first，不引入 ORM
 
-**结论**：建表、索引、迁移和查询使用外置 `.sql` 文件；Go 代码进行参数绑定和结果映射，不引入 Active Record 或 ORM。
+**结论**：建表、索引、结构脚本和查询使用外置 `.sql` 文件；Go 代码进行参数绑定和结果映射，不引入 Active Record 或 ORM。
 
 **理由**：SQL 可见、可审查、可优化；避免隐式查询与 N+1。
 
@@ -36,7 +36,7 @@
 
 ## D04 SQLite 默认，其他数据库逐一认证
 
-**结论**：SQLite 为零配置默认数据源；PostgreSQL/MySQL 作为目标驱动，完成驱动、SQL 方言、事务、迁移和集成测试后才列为正式支持。
+**结论**：SQLite 为零配置默认数据源；PostgreSQL/MySQL 作为目标驱动，完成驱动、SQL 方言、事务、结构同步和集成测试后才列为正式支持。
 
 **理由**：默认开箱即用，同时不把“理论可接”当成“已支持”。
 
@@ -217,12 +217,27 @@
 - `templates/app` 是唯一脚手架源；`examples/biz` 是唯一业务示例，不保留 `examples/minimal`。
 - `easyadmin new` 只生成薄壳工程：`cmd`、`apps`、`webui`、`config`、`go.mod`；业务项目不复制 `kernel`、`infra` 和内置 `apps`。
 - 业务项目只 import 公开包：`kernel`、`infra/*`、内置 `apps` 的构造函数、`webui` 契约；`infra/internal` 和框架内部实现不是公开 API。
-- 升级通过 Go module 版本完成；核心迁移 scope 为 `core`，业务迁移 scope 为 `app:<module-id>`，互不改写。
+- 升级通过 Go module 版本完成；核心结构脚本 scope 为 `core`，业务结构脚本 scope 为 `app:<module-id>`，互不改写。
 - 业务定制优先用配置、构造函数选项、窄接口和追加注册；禁止 fork 内置模块或长期维护 vendor 补丁。
 - 允许业务项目用 `git submodule` 固定 EasyAdmin 提交，并通过 `replace` 指向 `./lib/easyadmin`；submodule 必须指向官方仓库，不修改框架源码，框架改进须回流上游。
 
 **理由**：只有保持单一框架实现，通用组件和基础设施的修复才能一次进入所有现有和未来项目；复制代码会把升级收益切断。
 
-**代价**：必须严格维护公开 API、JS 契约和迁移兼容性，业务不能随意修改框架内部。
+**代价**：必须严格维护公开 API、JS 契约和结构兼容性，业务不能随意修改框架内部。
 
 **复审**：公开包边界和版本策略在 P5/P6 复核；“不复制基础设施”的原则不复审。
+
+## D20 开发期采用声明式结构同步，不维护迁移账本
+
+**结论**：
+
+- 开发期数据库结构以 `sql/<dialect>/` 脚本和 `TableSpec{Table, CreateScript, IndexScript}` 清单为唯一期望结构；启动时幂等 Ensure，只补齐缺失表和索引。
+- 列/索引差异通过 `DiffSchema` 只读预览，生成 SQL 必须显式确认；不自动删列、改列、改类型、重命名。
+- 不创建 `sys_migration` / `schema_migrations`；开发期允许空库重建，版本账本会与真实结构形成第二真相。
+- 生产阶段或出现非幂等数据操作时，另行决策引入 `sys_data_migration`；不把数据迁移和结构同步混为一张表。
+
+**理由**：复用现有 `infra/db` 的 EnsureTables/DiffSchema，机制最少，避免空账本和 checksum 维护；符合当前未上生产、可重建的事实。
+
+**代价**：不能追溯历史结构版本；列级变更需人工确认；生产前需补版本化方案。
+
+**复审**：首次生产部署前必须复审并给出升级/回滚方案；出现数据回填需求时触发数据迁移设计。

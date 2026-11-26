@@ -7,7 +7,7 @@
 | 目标包 | 来源 | 当前状态 | 尚未包含 |
 |---|---|---|---|
 | infra/conf | rocksys/internal/conf | 注册制配置、默认值快照、来源优先级、热更、List() 已迁移 | 配置来源/持久化元数据的完整管理 UI 契约仍需 P01 核验 |
-| infra/db | rocksys/internal/db | TableSpec、DDL 解析、多语句拆分、Catalog 查询、结构 Diff、安全 SQL 生成、幂等建表已迁移 | schema migration runner、size 等待迁移 |
+| infra/db | rocksys/internal/db | TableSpec、DDL 解析、多语句拆分、Catalog 查询、结构 Diff、安全 SQL 生成、幂等建表已迁移 | 版本化结构升级账本（开发期不采用）、size 等待迁移 |
 | infra/db/datasource.go | rocksys/internal/adminapi/dsn.go + easydb/dsn | 命名数据源、DSN 去重、激活项和 JSON 文件仓储已迁移 | 持久化到 EasyAdmin 系统数据库、应用管理 API |
 | infra/tasks | rocksys/internal/taskcenter | 任务注册、提交、进度快照、互斥、取消、终态保留和 panic 收口已迁移 | 当前纯内存；无数据库仓储、持久化任务日志、重启恢复、跨进程接管 |
 | infra/credential | emailplugin/internal/credential | AES-256-GCM、SSH 测试、~/.ssh/config 别名、SSH 隧道已迁移 | 服务器记录持久化、管理 API、权限和页面 |
@@ -17,7 +17,7 @@
 
 | 目标能力 | 来源 | 状态与约束 |
 |---|---|---|
-| infra/db/migrate | rocksys/internal/adminapi/migrate.go | 表迁移引擎与 HTTP handler、AdminServer、任务中心耦合，先拆独立执行器 |
+| infra/db 结构同步增强 | rocksys/internal/adminapi/migrate.go | 开发期不引入独立结构升级引擎；复用 `TableSpec` + EnsureTables/DiffSchema，按 D20 补齐结构差异预览 |
 | infra/db/size | rocksys/internal/adminapi/dbsize.go | 表空间统计可迁移，先抽方言查询与缓存 |
 | infra/tasks 持久化适配 | EasyAdmin 目标数据模型 | 以现有 tasks.Center 为执行/并发规则核心，补 Store/Repository 与恢复协议；不得平行重写任务中心 |
 | infra/scheduler 持久化 Store | 当前 scheduler.Store 接口 + sys_schedule | 对齐唯一数据字典后实现 SQL Store；配置键仍是启停唯一真源 |

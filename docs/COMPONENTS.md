@@ -51,7 +51,7 @@
 | `internal/conf/registry.go` | 配置注册、校验、热更、必填、密钥 | `infra/conf` | 吸收 `Hot/Require/Validate` 语义 |
 | `internal/taskcenter` | 持久任务、父子任务、进度、日志、取消、重试、接管 | `infra/tasks` | 直接作为任务中心蓝本，精简业务字段 |
 | `internal/schedule` | 登记、扫描、漏跑补触发、跳过记账 | `infra/scheduler` | 保留“到期扫描 + 不堆积”模型 |
-| `internal/schema` | 声明式建表、补列、差异检查 | `infra/db/schema` | P2 先做幂等建表与版本迁移，差异检查后置 |
+| `internal/schema` | 声明式建表、补列、差异检查 | `infra/db/schema` | P2 先做幂等建表，差异检查只做只读预览 |
 | `internal/storage` | 存储接口 + 驱动注册表 | `infra/storage` | 保留“业务不 import 厂商 SDK”的边界 |
 | `internal/db` | 脚本外置、超时上下文、批量写入 | `infra/db` | 合并 RockSys/KitBus 的数据层经验 |
 | WebUI 页面组织 | 视图/组件/提示分层 | `webui` | 吸收命名与交互约束 |
@@ -113,7 +113,7 @@
 | 数据源 | 命名连接、驱动、连接池 | `db.Manager` | 业务 `sql.Open` |
 | SQL 脚本 | 嵌入、方言选择、外挂覆盖 | `Source.Exec/One/Many` | 长 SQL 拼在 Go 里 |
 | 事务 | 显式事务回调 | `Source.Tx` | 跨层持有事务对象 |
-| 建表/迁移 | Ensure、版本迁移、结构检查 | `db/schema` | 启动时隐式删改列 |
+| 结构同步 | Ensure 补齐缺失表/索引、DiffSchema 只读预览 | `db/schema` | 启动时隐式删改列 |
 | 时间 | UTC 存储、接口 RFC3339 | `db` + 模块约定 | 各模块自定义时区口径 |
 
 ### 3.5 infra/httpapi

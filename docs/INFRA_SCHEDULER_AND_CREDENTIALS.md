@@ -138,7 +138,7 @@ sys_schedule 的唯一字段口径见 DATA_DICT.md §4.3；本文不再复制第
 
 ```sql
 CREATE TABLE sys_server (
-    id              BIGINT PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     name            VARCHAR(64) NOT NULL UNIQUE,
     connect_type    VARCHAR(16) NOT NULL, -- direct/config
     host            VARCHAR(255) NOT NULL DEFAULT '',
@@ -166,27 +166,11 @@ CREATE TABLE sys_server (
 
 ## 5. 其他待迁移项
 
-### 5.1 `infra/db/migrate`
+### 5.1 `infra/db` 结构同步增强
 
-从 `rocksys/internal/adminapi/migrate.go` 抽核心：
-
-```go
-type Migrator struct {
-    Source, Target *db.DB
-}
-
-type Options struct {
-    Tables []string
-    Batch  int
-    Mode   string // replace/upsert
-}
-
-func (m *Migrator) SchemaDiff(ctx) ([]db.DiffItem, error)
-func (m *Migrator) ApplySchema(ctx, progress tasks.SetProgressFn) error
-func (m *Migrator) Run(ctx, opts Options, progress tasks.SetProgressFn) error
-```
-
-HTTP handler、数据源选择、任务提交留在 `apps/system`。
+- 开发期不引入独立迁移引擎；复用 `TableSpec` + EnsureTables/DiffSchema 完成幂等建表与只读差异预览（见 `DECISIONS.md` D20）。
+- 整体数据搬迁工具（Source→Target 批量 replace/upsert）属于数据迁移能力，须独立设计决策，不并入结构同步。
+- HTTP handler、数据源选择、任务提交留在 `apps/system`。
 
 ### 5.2 `infra/db/size`
 
@@ -234,7 +218,7 @@ type Reader interface {
 2. `infra/scheduler`：Plan/Def/Entry/Runner + Store 接口 + 内存 Store 测试；再接 `sys_schedule`。
 3. `apps/system/servers`：`sys_server` 表、CRUD、连接测试页面。
 4. 命名数据源目录与 SQL 仓储暂不纳入本期；保留当前 JSON 仓储，待独立设计决策。
-5. `infra/db/migrate`。
+5. `infra/db` 结构同步增强（D20）；独立数据搬迁工具另行决策。
 6. `infra/db/size`。
 7. `infra/logx`、`infra/systeminfo`、`infra/storage`。
 

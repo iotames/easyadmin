@@ -2,6 +2,7 @@
 
 > 本文件是开发者与 AI Agent 进入仓库后的第一份必读文档。它把架构原则转化为可执行的工作流程和质量门槛。
 > 文档冲突时：本文件定义工程工作流；`docs/ARCHITECTURE.md` 裁决架构边界；`docs/DECISIONS.md` 记录已确认决策；`docs/ROADMAP.md` 裁决阶段范围；各专题文档定义正式契约。
+> 尽可能减少代码冗余，最大限度地提高代码复用。收敛统一调用入口方便维护，避免发散。
 
 ## 0. 项目状态
 
@@ -19,8 +20,8 @@ EasyAdmin 是基于自研 easy 系列的 Go 中后台框架，强调显式装配
 | 架构、分层、模块、生命周期 | `docs/ARCHITECTURE.md`、`docs/DECISIONS.md` |
 | 新增/修改模块或组件 | `docs/COMPONENTS.md`、`docs/CONVENTIONS.md` |
 | WebUI | `docs/FRONTEND.md`、`docs/CONVENTIONS.md` |
-| 配置 | `docs/CONFIGURATION_DESIGN.md`、架构第 6 节 |
-| 数据库、SQL、迁移 | `docs/DATA_DICT.md`、架构第 7 节 |
+| 配置 | `docs/CONFIGURATION_DESIGN.md`、架构第 8 节 |
+| 数据库、SQL、结构同步 | `docs/DATA_DICT.md`、架构第 9 节 |
 | API、认证、错误码 | `docs/API.md` |
 | 日志、审计、诊断 | `docs/LOGGING_DESIGN.md` |
 | 新项目模板、CLI、业务项目升级 | `docs/SCAFFOLD_AND_UPGRADE.md`、P5 成对计划 |
@@ -60,7 +61,7 @@ EasyAdmin 是基于自研 easy 系列的 Go 中后台框架，强调显式装配
 - 具体业务 API、页面、菜单、权限码和路由；
 - 客户、行业或公司专属配置、文案、品牌和默认值；
 - 单一业务系统的集成，如 ERP、邮件归档、代理/WAF、容器平台等；
-- 为单个项目写的一次性脚本、迁移和兼容补丁；
+- 为单个项目写的一次性脚本、结构变更和兼容补丁；
 - 真实客户数据、密钥、内部地址和隐私样例。
 
 ### 2.3 允许的例外
@@ -130,7 +131,7 @@ lib/                  easy 系列独立库的本地开发接入（具体方式 P
 - `Start/Stop`：有后台资源时显式拥有生命周期和关闭超时；
 - Go 服务、Repository、API handler、SQL、WebUI 页面、测试和文档边界；
 - 前端页面入口必须与 Manifest Page ID 一一对应，并通过架构测试校验；
-- 模块迁移只向统一迁移器声明，不得在 `Register` 中擅自执行 DDL；
+- 模块结构同步只向统一结构同步器登记，不得在 `Register` 中擅自执行 DDL；
 - 模块关闭时应用仍能按依赖规则启动。
 
 跨模块协作优先通过构造函数传入窄接口，由 `cmd` 组合根完成接线。禁止字符串键 `Get("service.name")` 成为普通业务调用方式；如确需可选 Provider 注册表，必须有明确类型、唯一性校验和调用点可追踪性。
@@ -176,7 +177,7 @@ lib/                  easy 系列独立库的本地开发接入（具体方式 P
 - 业务代码不得 `sql.Open`、自行创建连接池或直接导入底层数据库驱动。
 - SQL 参数化；动态列名/排序字段使用服务端白名单；禁止 SQL 注入式字符串拼接。
 - 事务边界在服务层；事务期间不调用外部 HTTP；所有 IO 使用 `context.Context` 和超时。
-- 表结构变更同步 SQL、数据字典、模型、迁移、API 和测试；迁移只前进，不自动删改列。
+- 表结构变更同步 SQL、数据字典、模型、结构脚本、API 和测试；结构同步不得在启动时自动删改列。
 
 ## 9. API、安全与日志红线
 
@@ -216,7 +217,7 @@ go build -o bin/easyadmin ./cmd/easyadmin
 |---|---|
 | 配置项 | 配置设计、注册说明、默认值快照和测试 |
 | API | `docs/API.md`、调用端、错误码和测试 |
-| 表/字段/枚举 | 方言 SQL、`DATA_DICT.md`、迁移、模型和查询测试 |
+| 表/字段/枚举 | 方言 SQL、`DATA_DICT.md`、结构脚本、模型和查询测试 |
 | 模块/菜单/页面 | Manifest、模块清单、前端 entries、架构测试 |
 | 日志/审计 | `LOGGING_DESIGN.md`、保留策略和权限 |
 | 架构决策 | `DECISIONS.md`、架构文档和受影响计划 |
@@ -226,7 +227,7 @@ go build -o bin/easyadmin ./cmd/easyadmin
 
 ## 12. 分期计划治理
 
-每期必须成对：`docs/plan/PHASE-xx-*/DESIGN_PLAN.md` 与同目录 `IMPL_PLAN.md`。唯一计划治理规范为 [`docs/plan/README.md`](docs/plan/README.md)；`docs/plan/PLAN.md` 仅作入口索引，不另立状态机或审批规则。
+每期必须成对：`docs/plan/<项目>_DESIGN_PLAN.md` 与同目录 `<项目>_IMPL_PLAN.md`；开工后执行明细 `STEPn_*.md` 放 `docs/plan/<项目>/`。唯一计划治理规范为 [`docs/plan/README.md`](docs/plan/README.md)；`docs/plan/PLAN.md` 仅作入口索引，不另立状态机或审批规则。
 
 - **唯一设计确认对象是 DESIGN_PLAN**：用户必须对已落盘的具体 DESIGN_PLAN 明确表示确认/通过；聊天中的零散意见不替代确认。
 - **IMPL_PLAN 不单独送审**：它是 DESIGN_PLAN 的实施指导，设计定稿后按当前仓库事实自主校准；不得扩张设计范围，执行状态归总纲/STEP，不回写为进度日志。

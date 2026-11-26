@@ -2,7 +2,7 @@
 
 本文是 EasyAdmin 核心表的逻辑口径。实现时必须同步三方言建表脚本与 Go 模型，字段名、含义、枚举不得各自为政。
 
-状态：草案。P2 落地前可调整；P2 之后变更必须走迁移与文档同步。
+状态：草案。P2 落地前可调整；P2 之后变更必须走结构差异预览、显式确认与文档同步。
 
 ## 1. 通用约定
 
@@ -90,18 +90,19 @@
 | `code` | 短字符串(96) | NOT NULL, UNIQUE | 权限码，如 `system.user.read` |
 | `name` | 短字符串(64) | NOT NULL | 展示名 |
 | `module` | 短字符串(64) | NOT NULL | 所属模块 ID |
+| `status` | 短字符串(16) | NOT NULL DEFAULT 'active' | `active` / `orphaned`；模块下线后标记 `orphaned`，不删除 |
 | `description` | 短字符串(255) | NOT NULL DEFAULT '' | 说明 |
 | `created_at` | 时间 | NOT NULL | 创建时间 |
 
 索引：
 
 - `UNIQUE(code)`
-- `INDEX(module)`
+- `INDEX(module, status)`
 
 规则：
 
 - 权限码由模块 Manifest 声明，启动时同步到表；
-- 已删除模块的权限标记为孤儿，不自动删除，避免历史角色权限丢失；
+- 已删除模块的权限标记为 `orphaned`，不自动删除，避免历史角色权限丢失；权限校验忽略 `orphaned`；
 - 权限码一经发布不复用。
 
 ### 2.4 `sys_role_permission`
@@ -161,6 +162,7 @@
 | `actor_id` | 主键类型 | NULL | 操作者用户 ID；系统任务可为空 |
 | `actor_name` | 短字符串(64) | NOT NULL DEFAULT '' | 操作者名称快照 |
 | `action` | 短字符串(96) | NOT NULL | 动作码，如 `system.user.update` |
+| `outcome` | 短字符串(16) | NOT NULL | `success` / `failure` / `denied` |
 | `target_type` | 短字符串(64) | NOT NULL DEFAULT '' | 目标类型 |
 | `target_id` | 短字符串(64) | NOT NULL DEFAULT '' | 目标 ID |
 | `summary` | 短字符串(255) | NOT NULL | 人读摘要 |
@@ -179,6 +181,7 @@
 规则：
 
 - 只增不改；
+- `outcome` 必填，区分成功、失败与授权拒绝；
 - `detail_json` 不记录密码、令牌、密钥；
 - 保留期由调度任务清理。
 
@@ -226,6 +229,7 @@
 - `INDEX(parent_no)`
 - `INDEX(kind, status)`
 - `INDEX(created_at)`
+- `INDEX(retry_of_no)`
 
 不变量：
 
@@ -260,7 +264,6 @@
 | title | 短字符串(128) | NOT NULL | 展示名 |
 | config_key | 短字符串(128) | NOT NULL | 启停配置键；启停唯一真源 |
 | plan_key | 短字符串(128) | NOT NULL DEFAULT '' | 周期配置键；为空时采用注册的固定计划 |
-| plan_every_min | INT | NOT NULL | 当前生效周期，1~525600 分钟 |
 | remark | 短字符串(500) | NOT NULL DEFAULT '' | 说明 |
 | last_status | 短字符串(16) | NOT NULL DEFAULT '' | 最近一次调度结果 |
 | last_message | 短字符串(255) | NOT NULL DEFAULT '' | 最近一次结果摘要 |
@@ -277,12 +280,12 @@
 唯一事实源与约束：
 - name 是主键，不另建自增 id。
 - 不存储 enabled 列；启停状态由 config_key 指向的配置项计算，避免配置中心与数据库双真相。
-- plan_key 为空时采用代码注册的 Plan；非空时读取该配置键并验证为 1~525600 的整数分钟。
+- 周期不落库：plan_key 为空时采用代码注册的 Plan，只读；非空时读取该配置键并验证为 1~525600 的整数分钟，配置值是周期唯一真源。
 - last_task_id 是最近派发任务，pending_task_id 是当前正在跟踪的任务指针；任务详情由 Task Center 提供，不在调度表重复存储。
 - 本表定义的是目标 SQL Store 持久化契约；现有 infra/scheduler 只有 Store 接口和 MemoryStore，数据库实现待 P04。
 - P04 必须明确任务中心重启后状态恢复与调度 pending_task_id 的一致性，不能将仅持久化调度指针视为任务接管完成。
 
-SQL 逻辑定义（各方言按通用类型映射生成对应脚本）：
+SQL 逻辑定义（SQLite 参考；MySQL/PostgreSQL 按 §1.1 映射生成）：
 
 ~~~sql
 CREATE TABLE sys_schedule (
@@ -290,7 +293,6 @@ CREATE TABLE sys_schedule (
     title           VARCHAR(128) NOT NULL,
     config_key      VARCHAR(128) NOT NULL,
     plan_key        VARCHAR(128) NOT NULL DEFAULT '',
-    plan_every_min  INTEGER NOT NULL,
     remark          VARCHAR(500) NOT NULL DEFAULT '',
     last_status     VARCHAR(16) NOT NULL DEFAULT '',
     last_message    VARCHAR(255) NOT NULL DEFAULT '',
@@ -301,6 +303,7 @@ CREATE TABLE sys_schedule (
     updated_at      TIMESTAMP NOT NULL
 );
 CREATE INDEX idx_sys_schedule_next_run_at ON sys_schedule(next_run_at);
+CREATE INDEX idx_sys_schedule_last_status ON sys_schedule(last_status);
 ~~~
 
 ## 5. 服务器与命名数据源（候选，待阶段评审）
@@ -311,7 +314,7 @@ CREATE INDEX idx_sys_schedule_next_run_at ON sys_schedule(next_run_at);
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
-| id | BIGINT | PK | 服务器 ID |
+| id | 自增主键 | PK | 服务器 ID |
 | name | 短字符串(64) | NOT NULL, UNIQUE | 稳定名称 |
 | connect_type | 短字符串(16) | NOT NULL | direct / config |
 | host | 短字符串(255) | NOT NULL DEFAULT '' | 主机地址 |
@@ -334,7 +337,7 @@ CREATE INDEX idx_sys_schedule_next_run_at ON sys_schedule(next_run_at);
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
-| id | BIGINT | PK | 数据源 ID |
+| id | 自增主键 | PK | 数据源 ID |
 | name | 短字符串(64) | NOT NULL, UNIQUE | 稳定名称 |
 | driver | 短字符串(32) | NOT NULL | 数据库驱动 |
 | dialect | 短字符串(32) | NOT NULL | SQL 方言 |
@@ -356,7 +359,7 @@ CREATE INDEX idx_sys_schedule_next_run_at ON sys_schedule(next_run_at);
 
 ~~~sql
 CREATE TABLE sys_server (
-    id BIGINT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(64) NOT NULL UNIQUE,
     connect_type VARCHAR(16) NOT NULL,
     host VARCHAR(255) NOT NULL DEFAULT '',
@@ -375,7 +378,7 @@ CREATE TABLE sys_server (
 );
 
 CREATE TABLE sys_datasource (
-    id BIGINT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(64) NOT NULL UNIQUE,
     driver VARCHAR(32) NOT NULL,
     dialect VARCHAR(32) NOT NULL,
@@ -409,7 +412,7 @@ CREATE TABLE sys_datasource (
 索引：
 
 - `UNIQUE(object_key)`
-- `INDEX(sha256)`
+- `UNIQUE(sha256)`
 - `INDEX(created_at)`
 - `INDEX(deleted_at)`
 
@@ -419,25 +422,33 @@ CREATE TABLE sys_datasource (
 - 删除先软删，物理清理由任务执行；
 - 物理删除前确认无业务引用。
 
-## 7. 迁移
+## 7. 结构同步与迁移
 
-### 7.1 `sys_migration`
+### 7.1 声明式结构同步（开发期方案）
+
+开发期不维护版本迁移账本，数据库结构以各 `sql/<dialect>/` 脚本与 `TableSpec` 清单为唯一期望结构：
+
+- 每张表登记 `TableSpec{Table, CreateScript, IndexScript}`；脚本使用 `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`，可重复执行。
+- 启动时按 `core → app:<module-id>` 的 scope 顺序执行幂等 Ensure，只补齐缺失的表和索引。
+- 结构差异用 `DiffSchema` 只读预览，生成的 ALTER SQL 必须显式确认后执行；不自动删列、改列、改类型、重命名。
+- 多语句脚本由统一拆分器逐条执行；单表失败记录表名与语句，不伪装成功。
+- 开发期数据库允许从空库重建，因此不创建 `sys_migration` / `schema_migrations` 表，避免版本账本与真实结构形成第二真相。
+
+理由与取舍见 `DECISIONS.md` D20。
+
+### 7.2 数据迁移（未启用）
+
+纯建表/加列由结构同步覆盖。只有出现非幂等数据操作（数据回填、拆列、跨表修复）时，才另立决策引入 `sys_data_migration`：
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
 | `scope` | 短字符串(64) | PK | `core` 或 `app:<module-id>` |
-| `version` | 短字符串(32) | PK | 迁移版本，如 `0001` |
+| `version` | 短字符串(32) | PK | 数据迁移版本 |
 | `name` | 短字符串(128) | NOT NULL | 迁移名 |
-| `checksum` | 短字符串(64) | NOT NULL | 文件校验和 |
+| `checksum` | 短字符串(64) | NOT NULL | 脚本校验和 |
 | `applied_at` | 时间 | NOT NULL | 执行时间 |
 
-规则：
-
-- 已执行迁移不可修改；修改校验和即启动失败；
-- 失败迁移不记录为已执行；
-- `core` 迁移由框架版本管理，业务迁移使用 `app:<module-id>`，升级时互不改写；
-- 启动时先应用 `core`，再按 app 依赖顺序应用业务迁移。
-- 破坏性迁移需显式确认。
+该表在真实需求出现并决策前不创建。
 
 ## 8. 表清单与期次
 
@@ -449,7 +460,6 @@ CREATE TABLE sys_datasource (
 | `sys_role_permission` | P2 | 角色权限 |
 | `sys_user_role` | P2 | 用户角色 |
 | `sys_session` | P2 | 会话 |
-| `sys_migration` | P2 | 迁移记录 |
 | `sys_audit_log` | P2 | 审计 |
 | `sys_task` | P4 | 任务 |
 | `sys_task_log` | P4 | 任务日志 |
@@ -466,7 +476,7 @@ CREATE TABLE sys_datasource (
 2. 本文对应章节；
 3. Go 模型与 DTO；
 4. 相关 API 文档与前端字段；
-5. 迁移脚本与回归测试。
+5. 结构脚本与回归测试。
 
 只改其中一处视为未完成。
 
@@ -475,12 +485,13 @@ CREATE TABLE sys_datasource (
 
 - 核心表自增主键在 Go 中统一使用 `int64`，JSON 中使用整数；禁止部分 API 把同一字段编码为数字、部分编码为字符串。
 - `task_no`、对象 key 等业务标识可使用字符串，但不得与数据库自增主键混为一谈。
-- PostgreSQL/MySQL 的具体自增类型、时间精度、布尔和 JSON 映射必须由方言迁移测试验证，不以表格定义代替实测。
+- PostgreSQL/MySQL 的具体自增类型、时间精度、布尔和 JSON 映射必须由方言结构同步测试验证，不以表格定义代替实测。
 - 对外接口不暴露 `sql.Null*`、驱动私有类型或数据库内部错误。
 
-## 11. 迁移执行红线
+## 11. 结构同步执行红线
 
-- 模块 `Register` 只登记迁移资源，不直接执行 DDL。
-- 迁移器统一负责版本检查、checksum、锁/并发保护、执行记录和失败诊断。
-- 自动迁移策略必须按环境明确；破坏性迁移默认拒绝无提示执行。
-- SQLite、PostgreSQL、MySQL 迁移脚本分别测试；数据库不支持事务 DDL 时必须记录部分执行和恢复办法。
+- 模块 `Register` 只登记 `TableSpec` 与 SQL 资源，不直接执行 DDL。
+- 启动 Ensure 只做加法：建缺失表、建缺失索引；不得自动删列、改列、改类型。
+- 列级差异必须经 `DiffSchema` 预览并由操作者显式确认；破坏性变更默认拒绝无提示执行。
+- 同名表在 core 与 app 之间冲突时启动失败，不静默覆盖。
+- SQLite、PostgreSQL、MySQL 结构脚本分别测试；数据库不支持事务 DDL 时必须记录部分执行和恢复办法。

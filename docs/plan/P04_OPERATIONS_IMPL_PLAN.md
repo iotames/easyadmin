@@ -28,7 +28,7 @@
 
 - 现有 infra/tasks、infra/scheduler（复用扩展）；新增持久化适配与 infra/storage。
 - 新增 apps/system/tasks、schedules、files、servers、logs 等模块。
-- sys_task、sys_task_log、sys_schedule、sys_file、sys_server 表与迁移；字段按本期 DESIGN_PLAN 和 DATA_DICT 对齐。
+- sys_task、sys_task_log、sys_schedule、sys_file、sys_server 表与结构脚本；字段按本期 DESIGN_PLAN 和 DATA_DICT 对齐。
 - 系统运维模块 API/UI。
 - `LOGGING_DESIGN.md` 和对应数据字典。
 
@@ -60,7 +60,7 @@
 - Task Store 与 Scheduler Store 双写失败必须有 reconciliation 和监控，不能静默忽略。
 - 日志中心不得查询不存在的索引数据。
 
-每一项涉及持久化数据的步骤必须明确备份、恢复和失败状态；不得把不可逆迁移描述为可自动回滚。
+每一项涉及持久化数据的步骤必须明确备份、恢复和失败状态；不得把不可逆结构变更描述为可自动回滚。
 
 ## 7. 完成定义
 

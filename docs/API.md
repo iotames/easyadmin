@@ -368,8 +368,8 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
 
 规则：
 
-- 周期为 1~525600 分钟；
-- 修改后立即重算 `next_run_at` 并写回配置；
+- 周期为 1~525600 分钟，由 `plan_key` 指向的配置项提供；`plan_key` 为空时使用代码注册的 Plan，只读；
+- 修改周期只写 `plan_key` 对应配置并立即重算 `next_run_at`；`plan_key` 为空时拒绝修改并返回 `SYSTEM_SCHEDULE_PLAN_IMMUTABLE`（409）；
 - 上一轮未结束时触发记 `skipped`；
 - 手动触发仍走任务中心并发规则。
 
@@ -384,7 +384,7 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
 
 运行日志查询参数：`level`、`from`、`to`、`keyword`、`page`、`page_size`。
 
-审计查询参数：`actor_id`、`action`、`from`、`to`、`page`、`page_size`。
+审计查询参数：`actor_id`、`action`、`outcome`、`from`、`to`、`page`、`page_size`；`outcome` 取 `success` / `failure` / `denied`，响应逐条返回该字段。
 
 日志与审计均为只读接口，不提供删除 API；清理走调度任务。
 
@@ -427,7 +427,7 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
   "status": "ready",
   "checks": {
     "database": "ok",
-    "migration": "ok"
+    "schema": "ok"
   }
 }
 ```
@@ -448,6 +448,7 @@ v0.x 仅管理 Bootstrap Config（进程启动配置），不提供数据库 Run
 | `SYSTEM_ROLE_IN_USE` | 409 | 角色仍被用户引用 |
 | `SYSTEM_CONFIG_READONLY` | 409 | 配置项来源不可写、策略为 immutable 或不允许在线修改 |
 | `SYSTEM_TASK_NOT_RETRYABLE` | 409 | 任务当前状态或类型不支持重试 |
+| `SYSTEM_SCHEDULE_PLAN_IMMUTABLE` | 409 | 调度周期由代码注册 Plan 管理，不可在线修改 |
 | `SYSTEM_FILE_TOO_LARGE` | 413 | 上传内容超过大小限制 |
 | `COMMON_INVALID_ARGUMENT` | 400 | 参数格式、结构或类型错误 |
 | `COMMON_VALIDATION_FAILED` | 422 | 字段或跨字段输入校验失败 |
